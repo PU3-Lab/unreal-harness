@@ -6,11 +6,7 @@ Blueprint 그래프 직접 수정은 피하고, C++ Base Class / DataAsset / Con
 
 ## 공통 원칙
 
-- **읽기 전용 분석 → 리포트 → 제한적 생성 → 사람 승인 → 적용** 순서로 진행한다.
-- `.uasset`, `.umap` 직접 바이너리 수정은 1차 범위에서 제외한다.
-- Codex는 판단 / 코드 생성 / 리포트 생성 / 수정안 제안 역할을 맡고, UE Editor Plugin 또는 Commandlet이 실제 UE 내부 접근을 담당한다.
-- 모든 자동화는 작은 명령 단위로 쪼갠다.
-- 각 명령은 입력 스펙, 출력 리포트, 실패 조건을 명확히 가진다.
+> 공통 원칙(읽기전용 → 리포트 → 제한적 생성 → 사람 승인 → 적용, `--dry-run` 기본 등)은 [00_overview.md](./00_overview.md) §3을 단일 출처로 따른다.
 
 
 ## 자동화 대상
@@ -106,9 +102,9 @@ ue-auto cpp generate-class \
   --module MyGame
 ```
 
-### 5단계. Codex 리뷰
+### 5단계. Agent 리뷰
 
-Codex에게 맡길 작업:
+Agent에게 맡길 작업:
 
 - BP 검증 리포트 요약
 - 반복 변수 / 함수의 C++ Base Class 승격 제안

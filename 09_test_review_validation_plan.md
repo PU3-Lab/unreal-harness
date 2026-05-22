@@ -6,11 +6,7 @@ UE5 자동화 하네스의 중심으로, Build → Asset Validation → Automati
 
 ## 공통 원칙
 
-- **읽기 전용 분석 → 리포트 → 제한적 생성 → 사람 승인 → 적용** 순서로 진행한다.
-- `.uasset`, `.umap` 직접 바이너리 수정은 1차 범위에서 제외한다.
-- Codex는 판단 / 코드 생성 / 리포트 생성 / 수정안 제안 역할을 맡고, UE Editor Plugin 또는 Commandlet이 실제 UE 내부 접근을 담당한다.
-- 모든 자동화는 작은 명령 단위로 쪼갠다.
-- 각 명령은 입력 스펙, 출력 리포트, 실패 조건을 명확히 가진다.
+> 공통 원칙(읽기전용 → 리포트 → 제한적 생성 → 사람 승인 → 적용, `--dry-run` 기본 등)은 [00_overview.md](./00_overview.md) §3을 단일 출처로 따른다.
 
 
 ## 자동화 대상
@@ -48,7 +44,7 @@ Human Final Check
 | 파일 | 설명 |
 |---|---|
 | `Saved/AutomationReports/review.summary.md` | 통합 리뷰 리포트 |
-| `Saved/AutomationReports/review.summary.json` | Codex용 구조화 결과 |
+| `Saved/AutomationReports/review.summary.json` | Agent용 구조화 결과 |
 | `Saved/Logs/build.log` | 빌드 로그 |
 | `Saved/Logs/automation_test.log` | 테스트 로그 |
 | `Saved/AutomationReports/risk.diff.md` | 변경 위험도 리포트 |
@@ -146,7 +142,7 @@ ue-auto review summarize \
 - 수동 확인 체크리스트
 - 다음 추천 명령
 
-## Codex 역할
+## Agent 역할
 
 - 실패 원인 요약
 - 수정 우선순위 정렬
@@ -177,4 +173,4 @@ ue-auto review summarize \
 - Editor Build 래퍼
 - 로그 분석
 - Asset Validation 통합 리포트
-- Codex용 review.summary.md 생성
+- Agent용 review.summary.md 생성
