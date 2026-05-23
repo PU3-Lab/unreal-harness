@@ -1,0 +1,20 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "UE Automation Bridge",
+  "Description": "Editor-only automation harness plugin. Hosts commandlets for snapshot, validation, and report generation. Not included in Runtime packaging.",
+  "Category": "Editor",
+  "CreatedBy": "unreal-harness",
+  "CanContainContent": false,
+  "IsBetaVersion": true,
+  "IsExperimentalVersion": false,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "UEAutomationBridge",
+      "Type": "Editor",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

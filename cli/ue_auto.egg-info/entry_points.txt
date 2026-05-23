@@ -1,0 +1,2 @@
+[console_scripts]
+ue-auto = ue_auto.main:main
