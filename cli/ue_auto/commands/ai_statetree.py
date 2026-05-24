@@ -387,6 +387,247 @@ def _cmd_ping(args: Any) -> int:
     return 0 if overall_ok else 1
 
 
+# ── statetree create ─────────────────────────────────────────────────────────
+
+def parse_create_spec(path: str) -> dict:
+    from pathlib import Path as _Path
+    import yaml as _yaml
+
+    p = _Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Spec not found: {path}")
+    data = _yaml.safe_load(p.read_text())
+    if not isinstance(data, dict) or "character" not in data:
+        raise ValueError("Spec must have a top-level 'character' key")
+    if "statetree" not in data:
+        raise ValueError("Spec must have a top-level 'statetree' key")
+    data["character"].setdefault("parent_class", "Character")
+    return data
+
+
+def generate_create_script(spec: dict, result_json_path: str = "") -> str:
+    char = spec["character"]
+    st = spec["statetree"]
+    char_name = char["name"]
+    char_path = char["content_path"]
+    parent_class = char["parent_class"]
+    st_name = st["name"]
+    st_path = st["content_path"]
+    result_out = result_json_path or ""
+
+    return f'''\
+import unreal
+import json
+
+def _create_and_validate():
+    asset_tools = unreal.AssetToolsHelpers.get_asset_tools()
+    checks = []
+    assets = []
+
+    # 1. Create StateTree asset
+    st_asset = asset_tools.create_asset(
+        asset_name="{st_name}",
+        package_path="{st_path}",
+        asset_class=unreal.StateTree,
+        factory=unreal.StateTreeFactory(),
+    )
+    checks.append({{"name": "statetree_created", "ok": st_asset is not None}})
+
+    # 2. Create Blueprint character
+    bp_factory = unreal.BlueprintFactory()
+    bp_factory.set_editor_property("parent_class", unreal.{parent_class})
+    bp_char = asset_tools.create_asset(
+        asset_name="{char_name}",
+        package_path="{char_path}",
+        asset_class=unreal.Blueprint,
+        factory=bp_factory,
+    )
+    checks.append({{"name": "blueprint_created", "ok": bp_char is not None}})
+
+    if st_asset is None or bp_char is None:
+        _write_result(checks, assets, "{result_out}")
+        return
+
+    # 3. Add StateTreeComponent
+    sds = unreal.get_editor_subsystem(unreal.SubobjectDataSubsystem)
+    root_handle = sds.k2_gather_subobject_data_for_blueprint(bp_char)[0]
+    new_handle, fail_reason = sds.add_new_subobject(
+        params=unreal.AddNewSubobjectParams(
+            parent_handle=root_handle,
+            new_class=unreal.StateTreeComponent,
+            blueprint_context=bp_char,
+        )
+    )
+    comp_ok = new_handle.is_valid()
+    checks.append({{"name": "component_added", "ok": comp_ok}})
+
+    if comp_ok:
+        sds.rename_subobject(handle=new_handle, new_name="StateTreeComponent")
+
+        # 4. Assign StateTree to component
+        sub_data = sds.k2_find_subobject_data_from_handle(new_handle)
+        comp_tmpl = unreal.SubobjectDataBlueprintFunctionLibrary.get_object(sub_data)
+        comp_tmpl.set_editor_property("state_tree", st_asset)
+        assigned = comp_tmpl.get_editor_property("state_tree")
+        checks.append({{"name": "statetree_assigned", "ok": assigned is not None}})
+    else:
+        checks.append({{"name": "statetree_assigned", "ok": False}})
+
+    # 5. Compile Blueprint
+    unreal.KismetEditorUtilities.compile_blueprint(bp_char)
+
+    # 6. Save and validate assets exist on disk
+    unreal.EditorAssetLibrary.save_asset(st_asset.get_path_name())
+    unreal.EditorAssetLibrary.save_asset(bp_char.get_path_name())
+    st_saved = unreal.EditorAssetLibrary.does_asset_exist(st_asset.get_path_name())
+    bp_saved = unreal.EditorAssetLibrary.does_asset_exist(bp_char.get_path_name())
+    checks.append({{"name": "assets_saved", "ok": st_saved and bp_saved}})
+
+    if st_saved:
+        assets.append(st_asset.get_path_name())
+    if bp_saved:
+        assets.append(bp_char.get_path_name())
+
+    print(f"CREATED statetree={{st_asset.get_path_name()}}")
+    print(f"CREATED character={{bp_char.get_path_name()}}")
+    _write_result(checks, assets, "{result_out}")
+
+
+def _write_result(checks, assets, path):
+    ok = all(c["ok"] for c in checks)
+    result = {{"ok": ok, "checks": checks, "assets": assets}}
+    if path:
+        import pathlib
+        pathlib.Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2)
+    print(f"RESULT ok={{ok}} checks={{len(checks)}}")
+
+
+_create_and_validate()
+'''
+
+
+def _cmd_statetree_create(args: Any) -> int:
+    spec_path = getattr(args, "spec", None)
+    out_dir = getattr(args, "out", None) or "."
+    project = getattr(args, "project", None)
+    dry_run = getattr(args, "dry_run", True)
+    if getattr(args, "apply", False):
+        dry_run = False
+
+    if not spec_path:
+        r = result_mod.failure(
+            "statetree-create", "MISSING_SPEC", "--spec is required",
+            hint="Pass --spec path/to/create.spec.yaml",
+        )
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    try:
+        spec = parse_create_spec(spec_path)
+    except (FileNotFoundError, ValueError) as exc:
+        r = result_mod.failure("statetree-create", "SPEC_ERROR", str(exc))
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    char_name = spec["character"]["name"]
+    st_name = spec["statetree"]["name"]
+    out = Path(out_dir)
+    script_path = out / "statetree_create.py"
+    result_json_path = out / "statetree_create.result.json"
+
+    script = generate_create_script(spec, result_json_path=str(result_json_path))
+
+    mode = "DRY-RUN" if dry_run else "APPLY"
+    print(f"{mode}  ue-auto ai statetree create  ({char_name} + {st_name})")
+
+    if dry_run:
+        r = result_mod.success("statetree-create", f"Would create {char_name} + {st_name}")
+        r["dry_run"] = True
+        result_mod.write(r, getattr(args, "result", None))
+        return 0
+
+    # Write script
+    out.mkdir(parents=True, exist_ok=True)
+    script_path.write_text(script, encoding="utf-8")
+
+    # Without project: script written, UE execution skipped
+    if not project:
+        r = result_mod.success(
+            "statetree-create",
+            f"Script generated: {script_path} (pass --project to execute via UE)",
+        )
+        r["script"] = str(script_path)
+        result_mod.write(r, getattr(args, "result", None))
+        return 0
+
+    # Find UE editor
+    editor = find_editor()
+    if not editor:
+        r = result_mod.failure(
+            "statetree-create", "EDITOR_NOT_FOUND",
+            "UnrealEditor-Cmd not found",
+            hint="Set UE_EDITOR_CMD env var or install UE in the standard path.",
+        )
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    # Execute via UE
+    cmd = [
+        editor,
+        str(Path(project).resolve()),
+        f"-ExecutePythonScript={script_path}",
+        "-unattended",
+        "-nop4",
+        "-nosplash",
+        "-nullrhi",
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+
+    if proc.returncode != 0:
+        if proc.stderr:
+            print(proc.stderr[:500], file=sys.stderr)
+        r = result_mod.failure(
+            "statetree-create", "UE_EXECUTION_FAILED",
+            f"UnrealEditor-Cmd exited with code {proc.returncode}",
+        )
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    # Read result JSON written by the script
+    ok = False
+    checks: list[dict] = []
+    assets: list[str] = []
+    if result_json_path.exists():
+        try:
+            data = json.loads(result_json_path.read_text(encoding="utf-8"))
+            ok = bool(data.get("ok", False))
+            checks = data.get("checks", [])
+            assets = data.get("assets", [])
+        except (json.JSONDecodeError, OSError):
+            ok = False
+
+    status = "PASS" if ok else "FAIL"
+    print(f"{status}  ue-auto ai statetree create  ({len(assets)} assets created)")
+
+    if ok:
+        r = result_mod.success(
+            "statetree-create",
+            f"Created {char_name} + {st_name} ({len(assets)} assets)",
+        )
+    else:
+        failed = [c["name"] for c in checks if not c.get("ok")]
+        r = result_mod.failure(
+            "statetree-create", "CREATE_VALIDATION_FAILED",
+            f"Validation failed: {', '.join(failed) if failed else 'result.json missing'}",
+        )
+    r["checks"] = checks
+    r["assets"] = assets
+    result_mod.write(r, getattr(args, "result", None))
+    return 0 if ok else 1
+
+
 # ── stub for unimplemented commands ───────────────────────────────────────────
 
 def _make_stub(verb: str):
@@ -429,8 +670,14 @@ def register(
     val_p.add_argument("--snapshot", metavar="PATH", help="statetree.snapshot.json path")
     val_p.set_defaults(func=_cmd_statetree_validate)
 
-    # stubs for Sprint 4+
-    for verb in ("create", "add-state", "add-task", "add-transition", "add-condition", "compile"):
+    # create
+    create_p = sub.add_parser("create", help="Generate Blueprint character + StateTree asset via UE Python")
+    add_common(create_p)
+    create_p.add_argument("--spec", metavar="PATH", help="Create spec YAML path")
+    create_p.set_defaults(func=_cmd_statetree_create)
+
+    # stubs for future commands
+    for verb in ("add-state", "add-task", "add-transition", "add-condition", "compile"):
         p = sub.add_parser(verb, help=f"[stub] {verb}")
         add_common(p)
         p.set_defaults(func=_make_stub(verb))
