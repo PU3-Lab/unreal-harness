@@ -1,0 +1,73 @@
+rules:
+  - class: Blueprint
+    prefix: BP_
+    allowed_paths:
+      - /Game/Characters/**
+      - /Game/Systems/**
+      - /Game/UI/**
+
+  - class: AnimationBlueprint
+    prefix: ABP_
+    allowed_paths:
+      - /Game/Characters/**/Animations/**
+
+  - class: BehaviorTree
+    prefix: BT_
+    allowed_paths:
+      - /Game/AI/BehaviorTrees/**
+
+  - class: BlackboardData
+    prefix: BB_
+    allowed_paths:
+      - /Game/AI/Blackboards/**
+
+  - class: StateTree
+    prefix: ST_
+    allowed_paths:
+      - /Game/AI/StateTrees/**
+
+  - class: WidgetBlueprint
+    prefix: WBP_
+    allowed_paths:
+      - /Game/UI/Widgets/**
+
+  - class: DataAsset
+    prefix: DA_
+    allowed_paths:
+      - /Game/Data/DataAssets/**
+
+  - class: DataTable
+    prefix: DT_
+    allowed_paths:
+      - /Game/Data/DataTables/**
+
+  - class: StaticMesh
+    prefix: SM_
+    allowed_paths:
+      - /Game/Characters/**/Meshes/**
+      - /Game/Environment/**
+      - /Game/Props/**
+
+  - class: SkeletalMesh
+    prefix: SKM_
+    allowed_paths:
+      - /Game/Characters/**/Meshes/**
+
+  - class: Material
+    prefix: M_
+    allowed_paths:
+      - /Game/Materials/**
+      - /Game/Characters/**/Materials/**
+
+  - class: MaterialInstanceConstant
+    prefix: MI_
+    allowed_paths:
+      - /Game/Materials/**
+      - /Game/Characters/**/Materials/**
+
+  - class: Texture2D
+    prefix: T_
+    allowed_paths:
+      - /Game/Textures/**
+      - /Game/Characters/**/Textures/**
+      - /Game/UI/**
