@@ -84,11 +84,85 @@ def _find_missing_targets(states: list[dict]) -> list[dict]:
     return violations
 
 
-def validate_statetree(snapshot: dict) -> dict:
+def _find_no_exit_transitions(states: list[dict]) -> list[dict]:
+    """Flag leaf states (no children) that have no outgoing transitions."""
+    container_names = {s.get("parent") for s in states if s.get("parent") is not None}
+    violations = []
+    for s in states:
+        if s.get("parent") is None:
+            continue
+        if s["name"] in container_names:
+            continue
+        if not s.get("transitions"):
+            violations.append({
+                "type": "NO_EXIT_TRANSITION",
+                "state": s["name"],
+                "message": f"Leaf state '{s['name']}' has no exit transitions (tree will be stuck here)",
+            })
+    return violations
+
+
+def _find_invalid_evaluators(snapshot: dict) -> list[dict]:
+    """Flag evaluators whose class is 'None' or empty."""
+    violations = []
+    for i, ev in enumerate(snapshot.get("evaluators", [])):
+        cls = ev.get("class", "")
+        if not cls or cls == "None":
+            violations.append({
+                "type": "INVALID_EVALUATOR",
+                "state": f"<evaluator[{i}]>",
+                "message": f"Evaluator at index {i} has invalid class '{cls}'",
+            })
+    return violations
+
+
+def _find_duplicate_states(states: list[dict]) -> list[dict]:
+    """Flag state names that appear more than once."""
+    counts: dict[str, int] = {}
+    for s in states:
+        name = s["name"]
+        counts[name] = counts.get(name, 0) + 1
+    return [
+        {
+            "type": "DUPLICATE_STATE",
+            "state": name,
+            "message": f"State '{name}' appears {count} times",
+        }
+        for name, count in counts.items()
+        if count > 1
+    ]
+
+
+def _find_spec_mismatches(snapshot: dict, spec: dict) -> list[dict]:
+    """Compare expected state names from spec with actual snapshot states."""
+    expected = {s["name"] for s in spec.get("states", [])}
+    actual = {s["name"] for s in snapshot.get("states", [])}
+    violations = []
+    for name in sorted(expected - actual):
+        violations.append({
+            "type": "SPEC_MISMATCH",
+            "state": name,
+            "message": f"State '{name}' expected by spec but not found in snapshot",
+        })
+    for name in sorted(actual - expected):
+        violations.append({
+            "type": "SPEC_MISMATCH",
+            "state": name,
+            "message": f"State '{name}' found in snapshot but not expected by spec",
+        })
+    return violations
+
+
+def validate_statetree(snapshot: dict, spec: dict | None = None) -> dict:
     states = snapshot.get("states", [])
     violations: list[dict] = []
     violations += _find_dead_states(states)
     violations += _find_missing_targets(states)
+    violations += _find_no_exit_transitions(states)
+    violations += _find_invalid_evaluators(snapshot)
+    violations += _find_duplicate_states(states)
+    if spec is not None:
+        violations += _find_spec_mismatches(snapshot, spec)
     return {
         "ok": len(violations) == 0,
         "asset_path": snapshot.get("asset_path", ""),
@@ -301,7 +375,20 @@ def _cmd_statetree_validate(args: Any) -> int:
         result_mod.write(r, args.result)
         return 1
 
-    report = validate_statetree(snapshot)
+    spec: dict | None = None
+    spec_path = getattr(args, "spec", None)
+    if spec_path:
+        import yaml as _yaml
+        p = Path(spec_path)
+        if not p.exists():
+            r = result_mod.failure(
+                "statetree-validate", "SPEC_NOT_FOUND", f"Spec not found: {spec_path}",
+            )
+            result_mod.write(r, args.result)
+            return 1
+        spec = _yaml.safe_load(p.read_text(encoding="utf-8"))
+
+    report = validate_statetree(snapshot, spec=spec)
     ok = report["ok"]
 
     if ok:
@@ -786,9 +873,13 @@ def register(
     rep_p.set_defaults(func=_cmd_statetree_report)
 
     # validate
-    val_p = sub.add_parser("validate", help="Validate StateTree structure (Dead State, Missing Target)")
+    val_p = sub.add_parser(
+        "validate",
+        help="Validate StateTree structure (Dead State, Missing Target, No Exit, Duplicate, Evaluator, Spec)",
+    )
     add_common(val_p)
     val_p.add_argument("--snapshot", metavar="PATH", help="statetree.snapshot.json path")
+    val_p.add_argument("--spec", metavar="PATH", help="Wire spec YAML for SPEC_MISMATCH check (optional)")
     val_p.set_defaults(func=_cmd_statetree_validate)
 
     # create
