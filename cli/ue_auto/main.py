@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from ue_auto.commands import ai_statetree, asset
+from ue_auto.commands import ai_statetree, asset, build_cmd, logs_cmd, review, test_cmd, validate_cmd
 
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
@@ -51,6 +51,31 @@ def main() -> None:
     asset_p = subparsers.add_parser("asset", help="Asset naming / path domain")
     asset_sub = asset_p.add_subparsers(dest="action", required=True)
     asset.register(asset_sub, _add_common_leaf)
+
+    # ── review ────────────────────────────────────────────────────
+    review_p = subparsers.add_parser("review", help="Review and risk analysis domain")
+    review_sub = review_p.add_subparsers(dest="action", required=True)
+    review.register(review_sub, _add_common_leaf)
+
+    # ── build ─────────────────────────────────────────────────────
+    build_p = subparsers.add_parser("build", help="Build domain")
+    build_sub = build_p.add_subparsers(dest="action", required=True)
+    build_cmd.register(build_sub, _add_common_leaf)
+
+    # ── logs ──────────────────────────────────────────────────────
+    logs_p = subparsers.add_parser("logs", help="Log analysis domain")
+    logs_sub = logs_p.add_subparsers(dest="action", required=True)
+    logs_cmd.register(logs_sub, _add_common_leaf)
+
+    # ── test ──────────────────────────────────────────────────────
+    test_p = subparsers.add_parser("test", help="Test automation domain")
+    test_sub = test_p.add_subparsers(dest="action", required=True)
+    test_cmd.register(test_sub, _add_common_leaf)
+
+    # ── validate ──────────────────────────────────────────────────
+    validate_p = subparsers.add_parser("validate", help="Validation domain")
+    validate_sub = validate_p.add_subparsers(dest="action", required=True)
+    validate_cmd.register(validate_sub, _add_common_leaf)
 
     args = parser.parse_args()
     if args.apply:
