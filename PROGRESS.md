@@ -1,7 +1,7 @@
 # UE Automation Harness — 진행 현황
 
 > 마지막 업데이트: 2026-05-24  
-> 테스트: 131 passed, 2 skipped  
+> 테스트: 138 passed, 2 skipped  
 > 참조: [전체 설계 개요](docs/plans/00_overview.md) | [CLI 사용법](docs/USAGE.md)
 
 ---
@@ -54,6 +54,29 @@
 **정책 YAML:** `docs/asset_rules/assets.naming_policy.yaml`  
 **Windows 지원:** `.bat` → `cmd.exe /c` 래핑, UE 5.3/5.6/5.7 known path, POSIX 경로 변환
 
+### ✅ Sprint 3 후속 — 버그 수정 & 대시보드
+
+| 변경 | 파일 | 내용 |
+|---|---|---|
+| 버그 수정 | `commands/asset.py` | `asset validate` 엔진 에셋 false positive 제거 (`/Game/` 경로만 검사) |
+| 신규 | `result.py` | `REPORTS_DIR`, `default_path()`, `write(None)` 지원 — 명령어별 `<action>.result.json` 자동 분리 |
+| 신규 | `commands/status_cmd.py` | `ue-auto status` — 모든 result.json 읽어 pass/fail 테이블 출력 |
+| 신규 | `main.py` | `status_cmd` 등록, `--result` 기본값 `None`으로 변경 |
+| 신규 | `tests/test_status_cmd.py` | 7개 테스트 |
+
+**배경:** 단일 `result.json`이 매번 덮어써져 이전 결과를 알 수 없었음 → 명령어별 파일 분리 + status 대시보드로 해결.
+
+**실기(MyProject) 검증 결과:**
+
+| STATUS | ACTION | 내용 |
+|---|---|---|
+| PASS | ping | 정상 |
+| PASS | snapshot | 7,935개 에셋 캡처 |
+| FAIL | validate | `/Game/` 내 254개 에셋 중 59개 네이밍 위반 (정상 감지) |
+| FAIL | diff | MyProject에 `main` 브랜치 없음 (git 설정 문제, 기능 버그 아님) |
+
+---
+
 ### ✅ Sprint 3 — StateTree AI 파이프라인
 
 | 명령어 | 파일 | 테스트 |
@@ -79,6 +102,7 @@
 ---
 
 ## 다음 목표: Sprint 4 — C++ 클래스 생성
+
 
 계획 문서: [05_cpp_class_generation_plan.md](docs/plans/05_cpp_class_generation_plan.md)
 

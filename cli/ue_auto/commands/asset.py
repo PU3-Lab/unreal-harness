@@ -66,7 +66,9 @@ def validate_assets(snapshot: list[dict], policy: dict) -> dict:
     rules_by_class = {r["class"]: r for r in policy.get("rules", [])}
     violations: list[dict] = []
 
-    for asset in snapshot:
+    project_assets = [a for a in snapshot if a.get("package_path", "").startswith("/Game/")]
+
+    for asset in project_assets:
         cls = asset.get("asset_class", "")
 
         if asset.get("is_redirector"):
@@ -89,7 +91,7 @@ def validate_assets(snapshot: list[dict], policy: dict) -> dict:
 
     return {
         "ok": len(violations) == 0,
-        "total": len(snapshot),
+        "total": len(project_assets),
         "violation_count": len(violations),
         "violations": violations,
     }

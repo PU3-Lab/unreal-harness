@@ -47,7 +47,16 @@ def failure(
     return r
 
 
-def write(result: dict[str, Any], path: str) -> None:
+REPORTS_DIR = "Saved/AutomationReports"
+
+
+def default_path(action: str) -> str:
+    return f"{REPORTS_DIR}/{action}.result.json"
+
+
+def write(result: dict[str, Any], path: str | None) -> None:
+    if path is None:
+        path = default_path(result.get("action", "unknown"))
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, ensure_ascii=False)

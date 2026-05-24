@@ -19,7 +19,7 @@ pip install -e .
 | `--project PATH` | — | `.uproject` 파일 경로 |
 | `--out PATH` | — | 주 출력 파일 경로 |
 | `--out-md PATH` | — | Markdown 리포트 출력 경로 |
-| `--result PATH` | `Saved/AutomationReports/result.json` | `result.json` 출력 경로 |
+| `--result PATH` | 자동 (`<action>.result.json`) | `result.json` 출력 경로 (미지정 시 `Saved/AutomationReports/<action>.result.json`) |
 | `--dry-run` | 활성화 | 실제 변경 없이 분석만 수행 |
 | `--apply` | 비활성화 | 실제 변경 적용 |
 
@@ -214,6 +214,33 @@ ue-auto asset validate \
 
 ---
 
+### `ue-auto status` — 실행 결과 대시보드
+
+`Saved/AutomationReports/` 내 모든 `*.result.json`을 읽어 pass/fail 테이블을 출력합니다. UE 실행 없이 순수 Python으로 동작합니다.
+
+```bash
+ue-auto status [--reports-dir PATH]
+```
+
+| 옵션 | 기본값 | 설명 |
+|---|---|---|
+| `--reports-dir` | `Saved/AutomationReports` | result.json 파일들이 있는 디렉터리 |
+
+**출력 예시:**
+```
+STATUS  ACTION    MESSAGE
+---------------------------------------------
+PASS    ping      pong  (2026-05-24 09:56:07)
+PASS    snapshot  Asset snapshot written to ...  (2026-05-24 10:06:25)
+FAIL    validate  59 violations found in 254 assets  [59 issues]  (2026-05-24 10:06:31)
+
+총 3개  PASS 2  FAIL 1
+```
+
+**종료 코드:** FAIL이 하나라도 있으면 1, 모두 PASS면 0.
+
+---
+
 ### `ue-auto validate all` — 전체 검증 (스텁)
 
 모든 도메인 검증기를 순서대로 실행합니다. 현재 스텁 상태입니다.
@@ -312,9 +339,8 @@ ue-auto test automation --project $PROJECT --timeout 600 --result $REPORTS/test.
 ue-auto asset snapshot --project $PROJECT --out $REPORTS/assets.snapshot.json
 ue-auto asset validate \
   --snapshot $REPORTS/assets.snapshot.json \
-  --policy docs/asset_rules/assets.naming_policy.yaml \
-  --result $REPORTS/asset_validate.json
+  --policy docs/asset_rules/assets.naming_policy.yaml
 
-# 5. 전체 요약
-ue-auto review summarize --reports $REPORTS --out-md $REPORTS/summary.md
+# 5. 전체 결과 대시보드 (FAIL 있으면 exit 1)
+ue-auto status --reports-dir $REPORTS
 ```

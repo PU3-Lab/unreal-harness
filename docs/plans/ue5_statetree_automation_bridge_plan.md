@@ -126,7 +126,7 @@ ue-auto ai statetree ping --project ./MyProject.uproject
 ### Phase 2 — ue-auto 연동
 
 **목표**: Agent가 사용할 `ue-auto ai statetree` 서브커맨드를 `UEAuto.StateTreeCommandlet`에 연결한다.
-(`ue-auto` 디스패처 골격 자체는 [ROADMAP Sprint 0](./ROADMAP.md)에서 정의)
+(`ue-auto` 디스패처 골격 자체는 [ROADMAP Sprint 0](../../ROADMAP.md)에서 정의)
 
 ```text
 2-1. project / spec / action / result 인자 매핑

@@ -85,14 +85,45 @@ Sprint 3 최종: **131 passed, 2 skipped**
 
 ---
 
+### Sprint 3 후속 — 버그 수정 & 대시보드
+
+**문제 1: `asset validate` 엔진 에셋 false positive**
+- 증상: `validate` 실행 시 9,123개 위반 보고 (엔진 에셋 포함)
+- 원인: 정책이 `/Game/**` 대상인데 `/Engine/`, `/Script/` 포함 전체 스냅샷(7,935개)을 검사
+- 수정: `validate_assets()`에서 `package_path.startswith("/Game/")` 필터 추가
+- 결과: 254개 `/Game/` 에셋 중 59개 실제 위반만 감지
+
+**문제 2: 단일 result.json으로 히스토리 불가**
+- 증상: 명령어 실행마다 `result.json` 덮어씀 → 이전 결과 손실
+- 수정: 명령어별 `<action>.result.json` 분리 (`result.py`에 `default_path()` 추가)
+- 신규: `ue-auto status` — 모든 `*.result.json` 읽어 pass/fail 테이블 출력
+
+| 수정/신규 파일 | 내용 |
+|---|---|
+| `ue_auto/result.py` | `REPORTS_DIR`, `default_path()`, `write(None)` 지원 |
+| `ue_auto/commands/status_cmd.py` | 신규 — `_load_results()`, `_cmd_status()` |
+| `ue_auto/main.py` | `status_cmd` 등록, `--result` 기본값 `None` |
+| `ue_auto/commands/asset.py` | `/Game/` 필터 버그 수정 |
+| `tests/test_status_cmd.py` | 신규 — 7개 테스트 |
+
+**실기(MyProject) 검증:**
+```
+PASS  ping      pong
+PASS  snapshot  7,935개 에셋
+FAIL  validate  59/254 위반 (정상 감지)
+FAIL  diff      MyProject에 main 브랜치 없음 (git 설정 문제)
+```
+
+---
+
 ## 최종 상태
 
 | 항목 | 값 |
 |---|---|
-| 테스트 | 131 passed, 2 skipped |
-| 구현 명령어 | 11개 (+ 6개 stub) |
-| 완료 스프린트 | Sprint 0~3 |
-| 다음 목표 | Sprint 4: `ue-auto cpp create` 또는 LLM Phase 1 연결 |
+| 테스트 | 138 passed, 2 skipped |
+| 구현 명령어 | 12개 (+ 6개 stub) |
+| 완료 스프린트 | Sprint 0~3 + 후속 수정 |
+| 다음 목표 | Sprint 4: `ue-auto cpp create` |
 
 ---
 
@@ -131,7 +162,23 @@ Sprint 3 최종: **131 passed, 2 skipped**
 
 ---
 
-## 다음 세션 옵션
+## 수정된 파일 목록 (후속 세션 추가분)
 
-1. **Sprint 4** — `ue-auto cpp create` (C++ 클래스 템플릿 생성)
-2. **LLM Phase 1 연결** — Claude Code → bash exec → `ue-auto` CLI → result.json
+### CLI (`cli/`)
+- `ue_auto/result.py` — `REPORTS_DIR`, `default_path()`, `write(None)` 지원
+- `ue_auto/main.py` — `status_cmd` 등록, `--result` 기본값 `None`
+- `ue_auto/commands/status_cmd.py` — 신규
+- `ue_auto/commands/asset.py` — `/Game/` 필터 버그 수정
+
+### Tests (`cli/tests/`)
+- `tests/test_status_cmd.py` — 신규 (7개 테스트)
+
+### 문서 (`docs/`)
+- `docs/USAGE.md` — `ue-auto status` 섹션 추가, `--result` 기본값 수정
+- `PROGRESS.md` — 테스트 수(138), 후속 변경 반영
+
+---
+
+## 다음 목표
+
+**Sprint 4** — `ue-auto cpp create` (C++ 클래스 템플릿 생성: Actor, ActorComponent, DataAsset, Interface, Subsystem)

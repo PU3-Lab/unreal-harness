@@ -1,6 +1,6 @@
 # ROADMAP — 스프린트 계획
 
-이 문서는 [00_overview.md](./00_overview.md)의 추천 진행 순서를 **시간축 스프린트**로 분해한 것이다.
+이 문서는 [00_overview.md](./docs/plans/00_overview.md)의 추천 진행 순서를 **시간축 스프린트**로 분해한 것이다.
 모든 스프린트는 공통 원칙(읽기전용 → 리포트 → 제한적 생성 → 사람 승인 → 적용)을 그대로 따른다.
 
 > 범위 메모: 본 레포는 현재 **기획 문서만** 존재한다. 아래 스프린트는 구현 로드맵이며,
@@ -31,7 +31,7 @@
 **목표**: 모든 도메인이 공유할 골격을 확정한다. (정의/계약 중심, 최소 동작)
 
 - `ue-auto <도메인> <동작>` 디스패처 골격 + 공통 옵션(`--project/--out/--result/--dry-run/--apply`)
-- `result.json` 표준 writer (성공/실패 스키마 — [00_overview §7](./00_overview.md))
+- `result.json` 표준 writer (성공/실패 스키마 — [00_overview §7](./docs/plans/00_overview.md))
 - Markdown 리포트 공통 포맷 (상태 PASS/WARN/FAIL, 심각 항목 최상단)
 - `UEAutomationBridge` Editor 플러그인 skeleton + commandlet `ping`
 - 표준 디렉터리 생성 규약 (`Saved/AutomationReports/`, `Saved/Logs/`)
@@ -79,7 +79,7 @@
 ## Sprint 3 — StateTree 읽기 중심 (03 + Bridge 상세)
 
 **목표**: StateTree를 읽기/리포트/검증부터, 그 다음 빈 트리 생성·State 추가까지.
-상세 Phase는 [ue5_statetree_automation_bridge_plan.md](./ue5_statetree_automation_bridge_plan.md).
+상세 Phase는 [ue5_statetree_automation_bridge_plan.md](./docs/plans/ue5_statetree_automation_bridge_plan.md).
 
 - `ue-auto ai statetree snapshot` / `report` / `validate`
 - 검증 최소 3종: Dead State / Missing Target / Missing Task Class
@@ -195,4 +195,4 @@
 
 - 한 스프린트의 MVP(`snapshot → validate → report → result.json`)가 끝나야 다음 확장으로 간다.
 - mutation 계열은 항상 `--dry-run` 먼저, `--apply`는 사람 승인 후.
-- 모든 스프린트 산출물은 [00_overview.md](./00_overview.md)의 CLI/경로/result.json 규약을 따른다.
+- 모든 스프린트 산출물은 [00_overview.md](./docs/plans/00_overview.md)의 CLI/경로/result.json 규약을 따른다.

@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from ue_auto.commands import ai_statetree, asset, build_cmd, logs_cmd, review, test_cmd, validate_cmd
+from ue_auto.commands import ai_statetree, asset, build_cmd, logs_cmd, review, status_cmd, test_cmd, validate_cmd
 
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
@@ -12,8 +12,8 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--result",
         metavar="PATH",
-        default="Saved/AutomationReports/result.json",
-        help="result.json output path (default: Saved/AutomationReports/result.json)",
+        default=None,
+        help="result.json output path (default: Saved/AutomationReports/<action>.result.json)",
     )
     parser.add_argument("--dry-run", dest="dry_run", action="store_true", default=True)
     parser.add_argument("--apply", dest="apply", action="store_true", default=False)
@@ -76,6 +76,9 @@ def main() -> None:
     validate_p = subparsers.add_parser("validate", help="Validation domain")
     validate_sub = validate_p.add_subparsers(dest="action", required=True)
     validate_cmd.register(validate_sub, _add_common_leaf)
+
+    # ── status ────────────────────────────────────────────────────
+    status_cmd.register(subparsers, _add_common_leaf)
 
     args = parser.parse_args()
     if args.apply:
