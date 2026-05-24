@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from ue_auto.commands import ai_statetree, asset, build_cmd, logs_cmd, review, status_cmd, test_cmd, validate_cmd
+from ue_auto.commands import ai_statetree, asset, build_cmd, cpp_cmd, logs_cmd, review, status_cmd, test_cmd, validate_cmd
 
 
 def _add_common(parser: argparse.ArgumentParser) -> None:
@@ -46,6 +46,11 @@ def main() -> None:
     st_p = ai_sub.add_parser("statetree", help="StateTree commands")
     st_sub = st_p.add_subparsers(dest="action", required=True)
     ai_statetree.register(st_sub, _add_common_leaf)
+
+    # ── cpp ───────────────────────────────────────────────────────
+    cpp_p = subparsers.add_parser("cpp", help="C++ class generation domain")
+    cpp_sub = cpp_p.add_subparsers(dest="action", required=True)
+    cpp_cmd.register(cpp_sub, _add_common_leaf)
 
     # ── asset ─────────────────────────────────────────────────────
     asset_p = subparsers.add_parser("asset", help="Asset naming / path domain")
