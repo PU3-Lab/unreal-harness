@@ -424,13 +424,19 @@ def _create_and_validate():
     checks = []
     assets = []
 
-    # 1. Create StateTree asset
+    # Ensure content browser directories exist
+    for _dir in ["{st_path}", "{char_path}"]:
+        unreal.EditorAssetLibrary.make_directory(_dir)
+
+    # 1. Create StateTree asset (ghost files cleaned up before UE launch)
     st_asset = asset_tools.create_asset(
         asset_name="{st_name}",
         package_path="{st_path}",
         asset_class=unreal.StateTree,
-        factory=unreal.StateTreeFactory(),
+        factory=None,
     )
+    if st_asset is None:
+        st_asset = unreal.EditorAssetLibrary.load_asset("{st_path}/{st_name}")
     checks.append({{"name": "statetree_created", "ok": st_asset is not None}})
 
     # 2. Create Blueprint character
@@ -442,6 +448,8 @@ def _create_and_validate():
         asset_class=unreal.Blueprint,
         factory=bp_factory,
     )
+    if bp_char is None:
+        bp_char = unreal.EditorAssetLibrary.load_asset("{char_path}/{char_name}")
     checks.append({{"name": "blueprint_created", "ok": bp_char is not None}})
 
     if st_asset is None or bp_char is None:
@@ -449,7 +457,8 @@ def _create_and_validate():
         return
 
     # 3. Add StateTreeComponent
-    sds = unreal.get_editor_subsystem(unreal.SubobjectDataSubsystem)
+    # SubobjectDataSubsystem is an EngineSubsystem, not an EditorSubsystem
+    sds = unreal.get_engine_subsystem(unreal.SubobjectDataSubsystem)
     root_handle = sds.k2_gather_subobject_data_for_blueprint(bp_char)[0]
     new_handle, fail_reason = sds.add_new_subobject(
         params=unreal.AddNewSubobjectParams(
@@ -458,23 +467,27 @@ def _create_and_validate():
             blueprint_context=bp_char,
         )
     )
-    comp_ok = new_handle.is_valid()
+    comp_ok = str(fail_reason) == ""
     checks.append({{"name": "component_added", "ok": comp_ok}})
 
     if comp_ok:
         sds.rename_subobject(handle=new_handle, new_name="StateTreeComponent")
 
         # 4. Assign StateTree to component
+        # state_tree_ref is FStateTreeReference (a struct), not UStateTree directly
         sub_data = sds.k2_find_subobject_data_from_handle(new_handle)
         comp_tmpl = unreal.SubobjectDataBlueprintFunctionLibrary.get_object(sub_data)
-        comp_tmpl.set_editor_property("state_tree", st_asset)
-        assigned = comp_tmpl.get_editor_property("state_tree")
+        st_ref = unreal.StateTreeReference()
+        st_ref.set_editor_property("state_tree", st_asset)
+        comp_tmpl.set_editor_property("state_tree_ref", st_ref)
+        assigned_ref = comp_tmpl.get_editor_property("state_tree_ref")
+        assigned = assigned_ref.get_editor_property("state_tree") if assigned_ref else None
         checks.append({{"name": "statetree_assigned", "ok": assigned is not None}})
     else:
         checks.append({{"name": "statetree_assigned", "ok": False}})
 
     # 5. Compile Blueprint
-    unreal.KismetEditorUtilities.compile_blueprint(bp_char)
+    unreal.BlueprintEditorLibrary.compile_blueprint(bp_char)
 
     # 6. Save and validate assets exist on disk
     unreal.EditorAssetLibrary.save_asset(st_asset.get_path_name())
@@ -504,7 +517,18 @@ def _write_result(checks, assets, path):
     print(f"RESULT ok={{ok}} checks={{len(checks)}}")
 
 
-_create_and_validate()
+try:
+    _create_and_validate()
+except Exception as _exc:
+    import traceback
+    _tb = traceback.format_exc()
+    print(f"UNHANDLED EXCEPTION: {{_exc}}")
+    print(_tb)
+    _write_result(
+        [{{"name": "unhandled_exception", "ok": False, "detail": str(_exc)}}],
+        [],
+        "{result_out}",
+    )
 '''
 
 
@@ -573,6 +597,19 @@ def _cmd_statetree_create(args: Any) -> int:
         result_mod.write(r, getattr(args, "result", None))
         return 1
 
+    # Remove ghost .uasset files before launching UE — ghost packages block
+    # create_asset even when does_asset_exist returns False.
+    content_dir = Path(project).parent / "Content"
+    for asset_key, asset_content_path in [
+        ("statetree", spec["statetree"]["content_path"]),
+        ("character", spec["character"]["content_path"]),
+    ]:
+        asset_name = spec[asset_key]["name"]
+        rel = asset_content_path.replace("/Game/", "", 1).lstrip("/")
+        ghost = content_dir / rel / (asset_name + ".uasset")
+        if ghost.exists():
+            ghost.unlink()
+
     # Execute via UE
     cmd = [
         editor,
@@ -628,6 +665,90 @@ def _cmd_statetree_create(args: Any) -> int:
     return 0 if ok else 1
 
 
+# ── wire command ─────────────────────────────────────────────────────────────
+
+def _cmd_statetree_wire(args: Any) -> int:
+    project = getattr(args, "project", None)
+    asset = getattr(args, "asset", None)
+
+    if not project:
+        r = result_mod.failure(
+            "statetree-wire", "MISSING_PROJECT", "--project is required",
+            hint="Pass --project path/to/MyGame.uproject",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    if not asset:
+        r = result_mod.failure(
+            "statetree-wire", "MISSING_ASSET", "--asset is required",
+            hint="Pass --asset /Game/AI/ST_EnemyAI",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    editor = find_editor()
+    if not editor:
+        r = result_mod.failure(
+            "statetree-wire", "EDITOR_NOT_FOUND",
+            "UnrealEditor-Cmd not found",
+            hint="Set UE_EDITOR_CMD env var or install UE in the standard path.",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    _out_raw = getattr(args, "out", None) or "Saved/AutomationReports/statetree.wire.result.json"
+    out = Path(_out_raw).as_posix() if Path(_out_raw).is_absolute() else _out_raw
+
+    cmd = [
+        editor,
+        str(Path(project).resolve()),
+        "-run=StateTreeWireCommandlet",
+        f"-asset={asset}",
+        f"-out={out}",
+        "-unattended",
+        "-nop4",
+        "-nosplash",
+        "-nullrhi",
+    ]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        r = result_mod.failure(
+            "statetree-wire", "EDITOR_NOT_FOUND", str(exc),
+            hint="Set UE_EDITOR_CMD env var or install UE in the standard path.",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    ok = proc.returncode == 0
+
+    # Try reading the result JSON written by the commandlet
+    result_data: dict = {}
+    result_path = Path(out) if Path(out).is_absolute() else Path(project).parent / out
+    if result_path.exists():
+        try:
+            result_data = json.loads(result_path.read_text(encoding="utf-8"))
+            ok = ok and bool(result_data.get("ok", False))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    if ok:
+        msg = result_data.get("message", f"StateTree wired: {asset}")
+        r = result_mod.success("statetree-wire", msg, asset=asset)
+    else:
+        if proc.stderr:
+            print(proc.stderr[:500], file=sys.stderr)
+        error_code = result_data.get("error_code", "WIRE_FAILED")
+        error_msg = result_data.get("message") or f"StateTreeWireCommandlet failed (exit {proc.returncode})"
+        r = result_mod.failure("statetree-wire", error_code, error_msg, asset=asset)
+    result_mod.write(r, args.result)
+
+    status = "PASS" if ok else "FAIL"
+    print(f"{status}  ue-auto ai statetree wire  (asset={asset})")
+    return 0 if ok else 1
+
+
 # ── stub for unimplemented commands ───────────────────────────────────────────
 
 def _make_stub(verb: str):
@@ -675,6 +796,12 @@ def register(
     add_common(create_p)
     create_p.add_argument("--spec", metavar="PATH", help="Create spec YAML path")
     create_p.set_defaults(func=_cmd_statetree_create)
+
+    # wire
+    wire_p = sub.add_parser("wire", help="Wire Idle/Flee states and compile ST_EnemyAI via C++ commandlet")
+    add_common(wire_p)
+    wire_p.add_argument("--asset", metavar="PATH", help="UE asset path (e.g. /Game/AI/ST_EnemyAI)")
+    wire_p.set_defaults(func=_cmd_statetree_wire)
 
     # stubs for future commands
     for verb in ("add-state", "add-task", "add-transition", "add-condition", "compile"):

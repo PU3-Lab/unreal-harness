@@ -116,9 +116,23 @@ def test_script_adds_statetree_component():
     assert "add_new_subobject" in script
 
 
+def test_script_uses_engine_subsystem_not_editor_subsystem():
+    # SubobjectDataSubsystem is UEngineSubsystem — get_editor_subsystem crashes.
+    script = generate_create_script(_spec())
+    assert "get_engine_subsystem" in script
+    assert "get_editor_subsystem" not in script
+
+
+def test_script_checks_fail_reason_not_is_valid():
+    # SubobjectDataHandle has no is_valid() in Python bindings; use fail_reason.
+    script = generate_create_script(_spec())
+    assert "fail_reason" in script
+    assert "is_valid" not in script
+
+
 def test_script_assigns_statetree_to_component():
     script = generate_create_script(_spec())
-    assert "state_tree" in script
+    assert "state_tree_ref" in script
 
 
 def test_script_compiles_blueprint():
