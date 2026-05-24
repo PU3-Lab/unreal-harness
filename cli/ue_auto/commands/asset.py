@@ -182,7 +182,8 @@ def _cmd_asset_snapshot(args) -> int:
         result_mod.write(r, args.result)
         return 1
 
-    out = getattr(args, "out", None) or "Saved/AutomationReports/assets.snapshot.json"
+    _out_raw = getattr(args, "out", None) or "Saved/AutomationReports/assets.snapshot.json"
+    out = Path(_out_raw).as_posix() if Path(_out_raw).is_absolute() else _out_raw
 
     cmd = [
         editor,

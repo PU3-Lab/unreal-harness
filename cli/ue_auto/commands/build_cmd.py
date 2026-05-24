@@ -73,6 +73,8 @@ def _cmd_build_editor(args) -> int:
     config = getattr(args, "config", "Development") or "Development"
 
     cmd = [build_script, target, platform, config, str(Path(project).resolve())]
+    if sys.platform == "win32" and build_script.lower().endswith(".bat"):
+        cmd = ["cmd.exe", "/c"] + cmd
 
     proc = subprocess.run(cmd)
     ok = proc.returncode == 0

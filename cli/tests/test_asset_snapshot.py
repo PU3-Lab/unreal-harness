@@ -57,7 +57,7 @@ def test_snapshot_calls_commandlet_with_correct_args(tmp_path):
     called_cmd = mock_run.call_args[0][0]
     assert called_cmd[0] == "/ue/UnrealEditor-Cmd"
     assert "-run=AssetSnapshotCommandlet" in called_cmd
-    assert any(a.startswith(f"-out={out_path}") for a in called_cmd)
+    assert any(a.startswith(f"-out={Path(out_path).as_posix()}") for a in called_cmd)
 
 
 def test_snapshot_default_out_path(tmp_path):

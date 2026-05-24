@@ -137,3 +137,52 @@ def test_cmd_build_editor_subprocess_called_with_correct_args(tmp_path, monkeypa
     cmd = mock_run.call_args[0][0]
     assert cmd[0] == "/fake/Build.sh"
     assert "MyGameEditor" in cmd
+
+
+def test_cmd_build_editor_windows_wraps_bat_with_cmd_exe(tmp_path, monkeypatch):
+    monkeypatch.setenv("UE_BUILD_SCRIPT", r"C:\fake\Build.bat")
+    result_path = tmp_path / "result.json"
+
+    with patch("ue_auto.commands.build_cmd.sys") as mock_sys, \
+         patch("subprocess.run") as mock_run:
+        mock_sys.platform = "win32"
+        mock_run.return_value = MagicMock(returncode=0)
+        _cmd_build_editor(_Args(project="MyGame.uproject", result=str(result_path)))
+
+    cmd = mock_run.call_args[0][0]
+    assert cmd[0] == "cmd.exe"
+    assert cmd[1] == "/c"
+    assert r"C:\fake\Build.bat" in cmd
+
+
+def test_cmd_build_editor_non_windows_does_not_wrap_bat(tmp_path, monkeypatch):
+    monkeypatch.setenv("UE_BUILD_SCRIPT", "/fake/Build.sh")
+    result_path = tmp_path / "result.json"
+
+    with patch("ue_auto.commands.build_cmd.sys") as mock_sys, \
+         patch("subprocess.run") as mock_run:
+        mock_sys.platform = "darwin"
+        mock_run.return_value = MagicMock(returncode=0)
+        _cmd_build_editor(_Args(project="MyGame.uproject", result=str(result_path)))
+
+    cmd = mock_run.call_args[0][0]
+    assert cmd[0] != "cmd.exe"
+    assert cmd[0] == "/fake/Build.sh"
+
+
+def test_find_build_script_derives_bat_on_windows(monkeypatch, tmp_path):
+    monkeypatch.delenv("UE_BUILD_SCRIPT", raising=False)
+    engine_dir = tmp_path / "Engine"
+    batch_dir = engine_dir / "Build" / "BatchFiles"
+    batch_dir.mkdir(parents=True)
+    build_bat = batch_dir / "Build.bat"
+    build_bat.touch()
+
+    editor_cmd = str(engine_dir / "Binaries" / "Win64" / "UnrealEditor-Cmd.exe")
+    monkeypatch.setenv("UE_EDITOR_CMD", editor_cmd)
+
+    with patch("ue_auto.commands.build_cmd.sys") as mock_sys:
+        mock_sys.platform = "win32"
+        result = find_build_script()
+
+    assert result == str(build_bat)
