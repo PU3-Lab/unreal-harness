@@ -85,3 +85,14 @@
 - `cli/tests/test_statetree_snapshot.py`
 - `cli/tests/test_statetree_report.py`
 - `cli/tests/test_statetree_validate.py`
+- `plugin/UEAutomationBridge/Source/.../Public/Commandlets/StateTreeSnapshotCommandlet.h`
+- `plugin/UEAutomationBridge/Source/.../Private/Commandlets/StateTreeSnapshotCommandlet.cpp`
+
+## Plugin Commandlet (C++ Stub)
+
+`StateTreeSnapshotCommandlet` — CLI `snapshot` 명령어의 C++ 대응 구현.
+
+- `-asset=<path>` (필수): UE 애셋 경로 (예: `/Game/AI/ST_Enemy`)
+- `-out=<path>` (선택): 출력 경로 (기본값: `Saved/AutomationReports/statetree.snapshot.json`)
+- 현재는 Root 상태만 담은 최소 JSON을 출력 (전체 StateTree 노드 탐색은 Sprint 4+ 예정)
+- 에러 처리: 직렬화 실패, 디렉터리 생성 실패, 파일 쓰기 실패 모두 return 1

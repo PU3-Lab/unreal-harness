@@ -63,6 +63,7 @@
 | `ue-auto ai statetree validate` | `commands/ai_statetree.py` | `tests/test_statetree_validate.py` |
 
 **검증 규칙:** Dead State (첫 번째 root 자식만 암묵적 reachable), Missing Target  
+**Plugin (C++):** `StateTreeSnapshotCommandlet` — `-asset=` / `-out=` 파싱, 최소 JSON 출력 (노드 탐색은 Sprint 4+ 예정)  
 **Stubs:** `create`, `add-state`, `add-task`, `add-transition`, `add-condition`, `compile` (Sprint 4+ 예정)
 
 ---
