@@ -1,0 +1,624 @@
+{
+  "ok": false,
+  "action": "validate",
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "59 violations found in 254 assets"
+  },
+  "timestamp": "2026-05-24T09:16:41Z",
+  "checks": [
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_FirstPersonColorway",
+      "package_path": "/Game/FirstPerson",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PREFIX_VIOLATION",
+      "asset": "UI_TouchSimple",
+      "package_path": "/Game/Input/Touch",
+      "asset_class": "WidgetBlueprint",
+      "expected_prefix": "WBP_"
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "UI_TouchSimple",
+      "package_path": "/Game/Input/Touch",
+      "asset_class": "WidgetBlueprint",
+      "allowed_paths": [
+        "/Game/UI/Widgets/**"
+      ]
+    },
+    {
+      "type": "PREFIX_VIOLATION",
+      "asset": "UI_Thumbstick",
+      "package_path": "/Game/Input/Touch",
+      "asset_class": "WidgetBlueprint",
+      "expected_prefix": "WBP_"
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "UI_Thumbstick",
+      "package_path": "/Game/Input/Touch",
+      "asset_class": "WidgetBlueprint",
+      "allowed_paths": [
+        "/Game/UI/Widgets/**"
+      ]
+    },
+    {
+      "type": "PREFIX_VIOLATION",
+      "asset": "BPI_TouchInterface",
+      "package_path": "/Game/Input/Touch",
+      "asset_class": "Blueprint",
+      "expected_prefix": "BP_"
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "BPI_TouchInterface",
+      "package_path": "/Game/Input/Touch",
+      "asset_class": "Blueprint",
+      "allowed_paths": [
+        "/Game/Characters/**",
+        "/Game/Systems/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "BP_FirstPersonCharacter",
+      "package_path": "/Game/FirstPerson/Blueprints",
+      "asset_class": "Blueprint",
+      "allowed_paths": [
+        "/Game/Characters/**",
+        "/Game/Systems/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "BP_FirstPersonPlayerController",
+      "package_path": "/Game/FirstPerson/Blueprints",
+      "asset_class": "Blueprint",
+      "allowed_paths": [
+        "/Game/Characters/**",
+        "/Game/Systems/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "BP_FirstPersonCameraManager",
+      "package_path": "/Game/FirstPerson/Blueprints",
+      "asset_class": "Blueprint",
+      "allowed_paths": [
+        "/Game/Characters/**",
+        "/Game/Systems/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "BP_FirstPersonGameMode",
+      "package_path": "/Game/FirstPerson/Blueprints",
+      "asset_class": "Blueprint",
+      "allowed_paths": [
+        "/Game/Characters/**",
+        "/Game/Systems/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_GridChecker_A",
+      "package_path": "/Game/LevelPrototyping/Textures",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_DefaultColorway",
+      "package_path": "/Game/LevelPrototyping/Materials",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "M_FlatCol",
+      "package_path": "/Game/LevelPrototyping/Materials",
+      "asset_class": "Material",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_PrototypeGrid_Gray",
+      "package_path": "/Game/LevelPrototyping/Materials",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "M_PrototypeGrid",
+      "package_path": "/Game/LevelPrototyping/Materials",
+      "asset_class": "Material",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_PrototypeGrid_Gray_02",
+      "package_path": "/Game/LevelPrototyping/Materials",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_PrototypeGrid_TopDark",
+      "package_path": "/Game/LevelPrototyping/Materials",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_PrototypeGrid_Gray_Round",
+      "package_path": "/Game/LevelPrototyping/Materials",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_Cylinder",
+      "package_path": "/Game/LevelPrototyping/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_QuarterCylinderOuter",
+      "package_path": "/Game/LevelPrototyping/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_Ramp",
+      "package_path": "/Game/LevelPrototyping/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_QuarterCylinder",
+      "package_path": "/Game/LevelPrototyping/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_Cube",
+      "package_path": "/Game/LevelPrototyping/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_Plane",
+      "package_path": "/Game/LevelPrototyping/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_ChamferCube",
+      "package_path": "/Game/LevelPrototyping/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "BP_DoorFrame",
+      "package_path": "/Game/LevelPrototyping/Interactable/Door",
+      "asset_class": "Blueprint",
+      "allowed_paths": [
+        "/Game/Characters/**",
+        "/Game/Systems/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "BP_JumpPad",
+      "package_path": "/Game/LevelPrototyping/Interactable/JumpPad",
+      "asset_class": "Blueprint",
+      "allowed_paths": [
+        "/Game/Characters/**",
+        "/Game/Systems/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "BP_WobbleTarget",
+      "package_path": "/Game/LevelPrototyping/Interactable/Target",
+      "asset_class": "Blueprint",
+      "allowed_paths": [
+        "/Game/Characters/**",
+        "/Game/Systems/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SKM_Manny_Simple",
+      "package_path": "/Game/Characters/Mannequins/Meshes",
+      "asset_class": "SkeletalMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SKM_Quinn_Simple",
+      "package_path": "/Game/Characters/Mannequins/Meshes",
+      "asset_class": "SkeletalMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "M_Mannequin",
+      "package_path": "/Game/Characters/Mannequins/Materials",
+      "asset_class": "Material",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Quinn_02_D",
+      "package_path": "/Game/Characters/Mannequins/Textures/Quinn",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Quinn_02_MRA",
+      "package_path": "/Game/Characters/Mannequins/Textures/Quinn",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Quinn_02_N",
+      "package_path": "/Game/Characters/Mannequins/Textures/Quinn",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Quinn_01_D",
+      "package_path": "/Game/Characters/Mannequins/Textures/Quinn",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Quinn_01_MRA",
+      "package_path": "/Game/Characters/Mannequins/Textures/Quinn",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Quinn_01_N",
+      "package_path": "/Game/Characters/Mannequins/Textures/Quinn",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_UE_Logo_M",
+      "package_path": "/Game/Characters/Mannequins/Textures/Shared",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Manny_02_D",
+      "package_path": "/Game/Characters/Mannequins/Textures/Manny",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Manny_02_BN",
+      "package_path": "/Game/Characters/Mannequins/Textures/Manny",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Manny_01_MRA",
+      "package_path": "/Game/Characters/Mannequins/Textures/Manny",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Manny_02_N",
+      "package_path": "/Game/Characters/Mannequins/Textures/Manny",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Manny_01_D",
+      "package_path": "/Game/Characters/Mannequins/Textures/Manny",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Manny_02_MRA",
+      "package_path": "/Game/Characters/Mannequins/Textures/Manny",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "T_Manny_01_BN",
+      "package_path": "/Game/Characters/Mannequins/Textures/Manny",
+      "asset_class": "Texture2D",
+      "allowed_paths": [
+        "/Game/Textures/**",
+        "/Game/Characters/**/Textures/**",
+        "/Game/UI/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_Quinn_01",
+      "package_path": "/Game/Characters/Mannequins/Materials/Quinn",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_Quinn_02",
+      "package_path": "/Game/Characters/Mannequins/Materials/Quinn",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_Manny_01_New",
+      "package_path": "/Game/Characters/Mannequins/Materials/Manny",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_Manny_02_New",
+      "package_path": "/Game/Characters/Mannequins/Materials/Manny",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_Door",
+      "package_path": "/Game/LevelPrototyping/Interactable/Door/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_DoorFrame_Edge",
+      "package_path": "/Game/LevelPrototyping/Interactable/Door/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_DoorFrame_Corner",
+      "package_path": "/Game/LevelPrototyping/Interactable/Door/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_TargetBaseMesh",
+      "package_path": "/Game/LevelPrototyping/Interactable/Target/Assets",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_CircularBand",
+      "package_path": "/Game/LevelPrototyping/Interactable/JumpPad/Assets/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "SM_CircularGlow",
+      "package_path": "/Game/LevelPrototyping/Interactable/JumpPad/Assets/Meshes",
+      "asset_class": "StaticMesh",
+      "allowed_paths": [
+        "/Game/Characters/**/Meshes/**",
+        "/Game/Environment/**",
+        "/Game/Props/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "MI_GlowNT",
+      "package_path": "/Game/LevelPrototyping/Interactable/JumpPad/Assets/Materials",
+      "asset_class": "MaterialInstanceConstant",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "M_GradientGlow",
+      "package_path": "/Game/LevelPrototyping/Interactable/JumpPad/Assets/Materials",
+      "asset_class": "Material",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    },
+    {
+      "type": "PATH_VIOLATION",
+      "asset": "M_SimpleGlow",
+      "package_path": "/Game/LevelPrototyping/Interactable/JumpPad/Assets/Materials",
+      "asset_class": "Material",
+      "allowed_paths": [
+        "/Game/Materials/**",
+        "/Game/Characters/**/Materials/**"
+      ]
+    }
+  ]
+}
