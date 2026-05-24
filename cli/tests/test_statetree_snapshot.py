@@ -1,0 +1,127 @@
+import json
+import pytest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+from ue_auto.commands.ai_statetree import _cmd_statetree_snapshot
+
+
+class _Args:
+    def __init__(self, **kwargs):
+        self.project = kwargs.get("project", None)
+        self.asset = kwargs.get("asset", None)
+        self.out = kwargs.get("out", None)
+        self.result = kwargs.get("result", "result.json")
+        self.dry_run = False
+        self.apply = False
+
+
+# ── missing project ──────────────────────────────────────────────────────────
+
+def test_snapshot_missing_project_returns_1(tmp_path):
+    result_path = tmp_path / "result.json"
+    args = _Args(result=str(result_path))
+    ret = _cmd_statetree_snapshot(args)
+    assert ret == 1
+    data = json.loads(result_path.read_text())
+    assert data["ok"] is False
+    assert data["error"]["code"] == "MISSING_PROJECT"
+
+
+# ── missing asset ─────────────────────────────────────────────────────────────
+
+def test_snapshot_missing_asset_returns_1(tmp_path):
+    result_path = tmp_path / "result.json"
+    args = _Args(project="MyGame.uproject", result=str(result_path))
+    ret = _cmd_statetree_snapshot(args)
+    assert ret == 1
+    data = json.loads(result_path.read_text())
+    assert data["ok"] is False
+    assert data["error"]["code"] == "MISSING_ASSET"
+
+
+# ── editor not found ──────────────────────────────────────────────────────────
+
+def test_snapshot_editor_not_found_returns_1(tmp_path):
+    result_path = tmp_path / "result.json"
+    args = _Args(project="MyGame.uproject", asset="/Game/AI/ST_Enemy", result=str(result_path))
+    with patch("ue_auto.commands.ai_statetree.find_editor", return_value=None):
+        ret = _cmd_statetree_snapshot(args)
+    assert ret == 1
+    data = json.loads(result_path.read_text())
+    assert data["error"]["code"] == "EDITOR_NOT_FOUND"
+
+
+# ── commandlet invocation ─────────────────────────────────────────────────────
+
+def test_snapshot_calls_commandlet_with_correct_args(tmp_path):
+    result_path = tmp_path / "result.json"
+    out_path = str(tmp_path / "statetree.snapshot.json")
+    args = _Args(
+        project="MyGame.uproject",
+        asset="/Game/AI/StateTrees/ST_Enemy",
+        out=out_path,
+        result=str(result_path),
+    )
+
+    mock_proc = MagicMock()
+    mock_proc.returncode = 0
+
+    with patch("ue_auto.commands.ai_statetree.find_editor", return_value="/ue/UnrealEditor-Cmd"), \
+         patch("ue_auto.commands.ai_statetree.subprocess.run", return_value=mock_proc) as mock_run:
+        ret = _cmd_statetree_snapshot(args)
+
+    assert ret == 0
+    called_cmd = mock_run.call_args[0][0]
+    assert called_cmd[0] == "/ue/UnrealEditor-Cmd"
+    assert "-run=StateTreeSnapshotCommandlet" in called_cmd
+    assert any("-asset=/Game/AI/StateTrees/ST_Enemy" in a for a in called_cmd)
+    assert any("statetree.snapshot.json" in a for a in called_cmd)
+
+
+def test_snapshot_default_out_path(tmp_path):
+    result_path = tmp_path / "result.json"
+    args = _Args(project="MyGame.uproject", asset="/Game/AI/ST_Enemy", result=str(result_path))
+
+    mock_proc = MagicMock()
+    mock_proc.returncode = 0
+
+    with patch("ue_auto.commands.ai_statetree.find_editor", return_value="/ue/UnrealEditor-Cmd"), \
+         patch("ue_auto.commands.ai_statetree.subprocess.run", return_value=mock_proc) as mock_run:
+        _cmd_statetree_snapshot(args)
+
+    called_cmd = mock_run.call_args[0][0]
+    assert any("statetree.snapshot.json" in a for a in called_cmd)
+
+
+def test_snapshot_commandlet_failure_returns_1(tmp_path):
+    result_path = tmp_path / "result.json"
+    args = _Args(project="MyGame.uproject", asset="/Game/AI/ST_Enemy", result=str(result_path))
+
+    mock_proc = MagicMock()
+    mock_proc.returncode = 1
+
+    with patch("ue_auto.commands.ai_statetree.find_editor", return_value="/ue/UnrealEditor-Cmd"), \
+         patch("ue_auto.commands.ai_statetree.subprocess.run", return_value=mock_proc):
+        ret = _cmd_statetree_snapshot(args)
+
+    assert ret == 1
+    data = json.loads(result_path.read_text())
+    assert data["ok"] is False
+    assert data["error"]["code"] == "SNAPSHOT_FAILED"
+
+
+def test_snapshot_success_writes_result_ok(tmp_path):
+    result_path = tmp_path / "result.json"
+    args = _Args(project="MyGame.uproject", asset="/Game/AI/ST_Enemy", result=str(result_path))
+
+    mock_proc = MagicMock()
+    mock_proc.returncode = 0
+
+    with patch("ue_auto.commands.ai_statetree.find_editor", return_value="/ue/UnrealEditor-Cmd"), \
+         patch("ue_auto.commands.ai_statetree.subprocess.run", return_value=mock_proc):
+        ret = _cmd_statetree_snapshot(args)
+
+    assert ret == 0
+    data = json.loads(result_path.read_text())
+    assert data["ok"] is True

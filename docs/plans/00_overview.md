@@ -207,7 +207,15 @@ ue-auto <도메인> <동작> [옵션...]
 
 ---
 
-## 9. 추천 진행 순서 & MVP
+## 9. LLM 통합 전략
+
+LLM(Agent)이 `ue-auto`를 호출하는 구체적인 방식과 단계적 로드맵은 별도 문서에서 정의한다.
+
+→ **[11_llm_integration.md](./11_llm_integration.md)** — bash exec / MCP 서버 / CI/CD 비교 및 권장 순서
+
+---
+
+## 10. 추천 진행 순서 & MVP
 
 상세 시간축은 [ROADMAP.md](./ROADMAP.md) 참조. 요약 순서:
 

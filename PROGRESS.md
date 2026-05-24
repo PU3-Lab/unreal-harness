@@ -1,7 +1,7 @@
 # UE Automation Harness — 진행 현황
 
 > 마지막 업데이트: 2026-05-24  
-> 테스트: 106 passed, 2 skipped  
+> 테스트: 131 passed, 2 skipped  
 > 참조: [전체 설계 개요](docs/plans/00_overview.md) | [CLI 사용법](docs/USAGE.md)
 
 ---
@@ -13,7 +13,7 @@
 | Sprint 0 | CLI 골격, Plugin stub, result.json 스키마 | ✅ 완료 | — |
 | Sprint 1 | Test/Review 파이프라인 (5개 명령어) | ✅ 완료 | [SPRINT_1_PLAN.md](docs/sprints/SPRINT_1_PLAN.md) |
 | Sprint 2 | Asset 네이밍/경로 파이프라인 + Windows 지원 | ✅ 완료 | [SPRINT_2_PLAN.md](docs/sprints/SPRINT_2_PLAN.md) |
-| Sprint 3 | StateTree AI 파이프라인 | ⬜ 미착수 | [03_statetree_plan.md](docs/plans/03_statetree_plan.md) |
+| Sprint 3 | StateTree AI 파이프라인 | ✅ 완료 | [SPRINT_3_PLAN.md](docs/sprints/SPRINT_3_PLAN.md) |
 | Sprint 4 | C++ 클래스 생성 | ⬜ 미착수 | [05_cpp_class_generation_plan.md](docs/plans/05_cpp_class_generation_plan.md) |
 | Sprint 5 | DataAsset / DataTable / Config | ⬜ 미착수 | [06_dataasset_datatable_config_plan.md](docs/plans/06_dataasset_datatable_config_plan.md) |
 | Sprint 6 | GameplayTag / Input / GAS | ⬜ 미착수 | [07_gameplaytag_input_ability_plan.md](docs/plans/07_gameplaytag_input_ability_plan.md) |
@@ -54,23 +54,36 @@
 **정책 YAML:** `docs/asset_rules/assets.naming_policy.yaml`  
 **Windows 지원:** `.bat` → `cmd.exe /c` 래핑, UE 5.3/5.6/5.7 known path, POSIX 경로 변환
 
+### ✅ Sprint 3 — StateTree AI 파이프라인
+
+| 명령어 | 파일 | 테스트 |
+|---|---|---|
+| `ue-auto ai statetree snapshot` | `commands/ai_statetree.py` | `tests/test_statetree_snapshot.py` |
+| `ue-auto ai statetree report` | `commands/ai_statetree.py` | `tests/test_statetree_report.py` |
+| `ue-auto ai statetree validate` | `commands/ai_statetree.py` | `tests/test_statetree_validate.py` |
+
+**검증 규칙:** Dead State (첫 번째 root 자식만 암묵적 reachable), Missing Target  
+**Stubs:** `create`, `add-state`, `add-task`, `add-transition`, `add-condition`, `compile` (Sprint 4+ 예정)
+
 ---
 
-## 다음 목표: Sprint 3 — StateTree AI 파이프라인
+## LLM 통합 전략
 
-계획 문서: [03_statetree_plan.md](docs/plans/03_statetree_plan.md)
+→ [11_llm_integration.md](docs/plans/11_llm_integration.md) — bash exec / MCP 서버 / CI/CD 비교 및 단계적 로드맵
+
+현재 권장: **Phase 1 (bash exec)** — Sprint 10까지 CLI 알파 테스트  
+다음 전환: **Phase 2 (MCP 서버/Claude Code plugin)** — 알파 테스트 완료 후 전환  
+전환 기준: CLI 스키마 안정화 + 실제 UE 프로젝트 검증 완료
+
+---
+
+## 다음 목표: Sprint 4 — C++ 클래스 생성
+
+계획 문서: [05_cpp_class_generation_plan.md](docs/plans/05_cpp_class_generation_plan.md)
 
 구현 예정 명령어:
 ```
-ue-auto ai statetree snapshot   — StateTree 구조 JSON 덤프
-ue-auto ai statetree report     — Markdown 리포트 생성
-ue-auto ai statetree validate   — 구조 검증 (Dead State, Transition Target 등)
-ue-auto ai statetree create     — StateTree 에셋 생성 (--dry-run 기본)
-ue-auto ai statetree add-state
-ue-auto ai statetree add-task
-ue-auto ai statetree add-transition
-ue-auto ai statetree add-condition
-ue-auto ai statetree compile
+ue-auto cpp create   — C++ 클래스 템플릿 생성 (Actor, Component, GameMode 등)
 ```
 
 ---
