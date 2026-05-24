@@ -1,8 +1,9 @@
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 from ue_auto import result as result_mod
 from ue_auto.runner import find_editor
@@ -14,7 +15,10 @@ def load_snapshot(path: str) -> dict:
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(f"Snapshot not found: {path}")
-    return json.loads(p.read_text(encoding="utf-8"))
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in snapshot '{path}': {e}") from e
 
 
 # ── validation logic ──────────────────────────────────────────────────────────
@@ -101,8 +105,8 @@ def _build_report_md(snapshot: dict) -> str:
     asset_path = snapshot.get("asset_path", "")
     states = snapshot.get("states", [])
 
-    total_tasks = sum(len(s.get("tasks", [])) for s in states)
-    total_transitions = sum(len(s.get("transitions", [])) for s in states)
+    total_tasks = sum(len(s.get("tasks") or []) for s in states)
+    total_transitions = sum(len(s.get("transitions") or []) for s in states)
 
     lines = [
         f"# {name} — StateTree 구조 리포트",
@@ -123,7 +127,7 @@ def _build_report_md(snapshot: dict) -> str:
         lines.append(f"### {s['name']}")
         lines.append(f"- **Parent:** {parent}")
 
-        tasks = s.get("tasks", [])
+        tasks = s.get("tasks") or []
         if tasks:
             lines.append("- **Tasks:**")
             for task in tasks:
@@ -131,7 +135,7 @@ def _build_report_md(snapshot: dict) -> str:
         else:
             lines.append("- **Tasks:** (none)")
 
-        transitions = s.get("transitions", [])
+        transitions = s.get("transitions") or []
         if transitions:
             lines.append("- **Transitions:**")
             for t in transitions:
@@ -172,7 +176,7 @@ def _write_validation_md(report: dict, path: str) -> None:
 
 # ── command implementations ───────────────────────────────────────────────────
 
-def _cmd_statetree_snapshot(args) -> int:
+def _cmd_statetree_snapshot(args: Any) -> int:
     project = getattr(args, "project", None)
     if not project:
         r = result_mod.failure(
@@ -215,12 +219,23 @@ def _cmd_statetree_snapshot(args) -> int:
         "-nosplash",
         "-nullrhi",
     ]
-    proc = subprocess.run(cmd)
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        r = result_mod.failure(
+            "statetree-snapshot", "EDITOR_NOT_FOUND", str(exc),
+            hint="Set UE_EDITOR_CMD env var or install UE in the standard path.",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
     ok = proc.returncode == 0
 
     if ok:
         r = result_mod.success("statetree-snapshot", f"StateTree snapshot written to {out}", asset=asset)
     else:
+        if proc.stderr:
+            print(proc.stderr[:500], file=sys.stderr)
         r = result_mod.failure(
             "statetree-snapshot", "SNAPSHOT_FAILED",
             f"StateTreeSnapshotCommandlet failed with exit code {proc.returncode}",
@@ -233,7 +248,7 @@ def _cmd_statetree_snapshot(args) -> int:
     return 0 if ok else 1
 
 
-def _cmd_statetree_report(args) -> int:
+def _cmd_statetree_report(args: Any) -> int:
     snapshot_path = getattr(args, "snapshot", None)
     if not snapshot_path:
         r = result_mod.failure(
@@ -245,8 +260,9 @@ def _cmd_statetree_report(args) -> int:
 
     try:
         snapshot = load_snapshot(snapshot_path)
-    except FileNotFoundError as exc:
-        r = result_mod.failure("statetree-report", "SNAPSHOT_NOT_FOUND", str(exc))
+    except (FileNotFoundError, ValueError) as exc:
+        code = "SNAPSHOT_NOT_FOUND" if isinstance(exc, FileNotFoundError) else "SNAPSHOT_PARSE_ERROR"
+        r = result_mod.failure("statetree-report", code, str(exc))
         result_mod.write(r, args.result)
         return 1
 
@@ -267,7 +283,7 @@ def _cmd_statetree_report(args) -> int:
     return 0
 
 
-def _cmd_statetree_validate(args) -> int:
+def _cmd_statetree_validate(args: Any) -> int:
     snapshot_path = getattr(args, "snapshot", None)
     if not snapshot_path:
         r = result_mod.failure(
@@ -279,8 +295,9 @@ def _cmd_statetree_validate(args) -> int:
 
     try:
         snapshot = load_snapshot(snapshot_path)
-    except FileNotFoundError as exc:
-        r = result_mod.failure("statetree-validate", "SNAPSHOT_NOT_FOUND", str(exc))
+    except (FileNotFoundError, ValueError) as exc:
+        code = "SNAPSHOT_NOT_FOUND" if isinstance(exc, FileNotFoundError) else "SNAPSHOT_PARSE_ERROR"
+        r = result_mod.failure("statetree-validate", code, str(exc))
         result_mod.write(r, args.result)
         return 1
 
@@ -321,8 +338,7 @@ def _cmd_statetree_validate(args) -> int:
 
 # ── ping (kept from Sprint 0) ─────────────────────────────────────────────────
 
-def _cmd_ping(args) -> int:
-    import sys
+def _cmd_ping(args: Any) -> int:
     from ue_auto import report as report_mod
     from ue_auto import runner
 
