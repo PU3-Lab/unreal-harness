@@ -1,4 +1,5 @@
 import argparse
+import copy
 import json
 import subprocess
 import sys
@@ -1272,6 +1273,257 @@ def _cmd_statetree_compile(args: Any) -> int:
     return 0 if ok else 1
 
 
+# ── spec runner ──────────────────────────────────────────────────────────────
+
+def parse_run_spec(path: str) -> dict:
+    """Parse a run spec YAML file. Returns dict with 'steps' list."""
+    import yaml  # type: ignore[import]
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Run spec not found: {path}")
+    data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    if "steps" not in data:
+        raise ValueError("Run spec must contain 'steps' key")
+    if not isinstance(data["steps"], list):
+        raise ValueError("'steps' must be a list")
+    return data
+
+
+def _find_state_in_spec(spec: dict, name: str) -> dict | None:
+    return next((s for s in spec.get("states", []) if s["name"] == name), None)
+
+
+def apply_run_step(spec: dict[str, Any], step_type: str, params: dict[str, Any]) -> dict[str, Any]:
+    """Apply a single step to spec, returning a new dict (immutable)."""
+    new_spec = copy.deepcopy(spec)
+
+    try:
+        if step_type == "add_state":
+            name = params["name"]
+            if not isinstance(name, str) or not name.strip():
+                raise ValueError("state 'name' must be a non-empty string")
+            parent = params.get("parent")
+            if parent and not _find_state_in_spec(new_spec, parent):
+                raise ValueError(f"parent state '{parent}' not found")
+            existing = [s["name"] for s in new_spec.get("states", [])]
+            if name in existing:
+                raise ValueError(f"Duplicate state name: '{name}'")
+            new_spec.setdefault("states", []).append({
+                "name": name,
+                "tasks": [],
+                "transitions": [],
+                "conditions": [],
+                "parent": parent,
+            })
+            return new_spec
+
+        if step_type == "add_task":
+            state_name = params["state"]
+            task_name = params["task"]
+            state = _find_state_in_spec(new_spec, state_name)
+            if state is None:
+                raise ValueError(f"State '{state_name}' not found")
+            state.setdefault("tasks", []).append({
+                "task": task_name,
+                "params": copy.deepcopy(params.get("params", {})),
+            })
+            return new_spec
+
+        if step_type == "add_transition":
+            from_name = params["from"]
+            to_name = params["to"]
+            from_state = _find_state_in_spec(new_spec, from_name)
+            if from_state is None:
+                raise ValueError(f"From state '{from_name}' not found")
+            if _find_state_in_spec(new_spec, to_name) is None:
+                raise ValueError(f"To state '{to_name}' not found")
+            from_state.setdefault("transitions", []).append({
+                "to": to_name,
+                "conditions": [],
+            })
+            return new_spec
+
+        if step_type == "add_condition":
+            from_name = params["from"]
+            to_name = params["to"]
+            condition = params["condition"]
+            from_state = _find_state_in_spec(new_spec, from_name)
+            if from_state is None:
+                raise ValueError(f"From state '{from_name}' not found")
+            tr = next(
+                (t for t in from_state.get("transitions", []) if t["to"] == to_name),
+                None,
+            )
+            if tr is None:
+                raise ValueError(f"Transition '{from_name}' → '{to_name}' not found")
+            tr.setdefault("conditions", []).append(condition)
+            return new_spec
+
+    except KeyError as exc:
+        raise ValueError(f"Missing required param: {exc}") from exc
+
+    raise ValueError(f"Unknown step type: '{step_type}'")
+
+
+def run_spec(steps: list[dict], dry_run: bool = False) -> dict:
+    """Execute a list of run steps sequentially. Returns result dict."""
+    initial: dict = {"states": [{"name": "Root", "tasks": [], "transitions": [], "conditions": []}]}
+    current = copy.deepcopy(initial)
+    results: list[dict] = []
+    completed = 0
+
+    for step in steps:
+        if not isinstance(step, dict) or len(step) != 1:
+            results.append({"ok": False, "error": f"Invalid step format: {step}"})
+            break
+        step_type, params = next(iter(step.items()))
+        try:
+            current = apply_run_step(current, step_type, params)
+            results.append({"ok": True})
+            completed += 1
+        except (ValueError, KeyError) as exc:
+            results.append({"ok": False, "error": str(exc)})
+            break
+
+    all_ok = all(r["ok"] for r in results) if results else True
+    out: dict = {
+        "ok": all_ok,
+        "steps_completed": completed,
+        "results": results,
+        "spec_state": copy.deepcopy(current),
+    }
+    if dry_run:
+        out["dry_run"] = True
+    return out
+
+
+def _cmd_statetree_run(args: argparse.Namespace) -> int:
+    spec_path: str | None = getattr(args, "spec", None)
+    dry_run: bool = getattr(args, "dry_run", False)
+
+    if not spec_path:
+        r = result_mod.failure("run", "MISSING_ARG", "--spec is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    try:
+        parsed = parse_run_spec(spec_path)
+    except FileNotFoundError as exc:
+        r = result_mod.failure("run", "NOT_FOUND", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+    except ValueError as exc:
+        r = result_mod.failure("run", "INVALID_SPEC", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+
+    run_result = run_spec(parsed["steps"], dry_run=dry_run)
+    out = {**run_result, "ok": run_result["ok"]}
+    result_mod.write(out, args.result)
+    status = "PASS" if run_result["ok"] else "FAIL"
+    print(f"{status}  ue-auto ai statetree run  (steps={run_result['steps_completed']})")
+    return 0 if run_result["ok"] else 1
+
+
+# ── snapshot diff ─────────────────────────────────────────────────────────────
+
+def _build_diff_md(
+    added_states: list[str],
+    removed_states: list[str],
+    added_transitions: list[dict[str, Any]],
+    removed_transitions: list[dict[str, Any]],
+    added_tasks: list[dict[str, Any]],
+    removed_tasks: list[dict[str, Any]],
+) -> str:
+    has_any = any([added_states, removed_states, added_transitions, removed_transitions, added_tasks, removed_tasks])
+    if not has_any:
+        return "No changes detected."
+
+    lines: list[str] = ["## StateTree Diff"]
+    if added_states:
+        lines.append("\n### Added States")
+        lines.extend(f"- `{s}`" for s in added_states)
+    if removed_states:
+        lines.append("\n### Removed States")
+        lines.extend(f"- `{s}`" for s in removed_states)
+    if added_transitions:
+        lines.append("\n### Added Transitions")
+        lines.extend(f"- `{t['from']}` → `{t['to']}`" for t in added_transitions)
+    if removed_transitions:
+        lines.append("\n### Removed Transitions")
+        lines.extend(f"- `{t['from']}` → `{t['to']}`" for t in removed_transitions)
+    if added_tasks:
+        lines.append("\n### Added Tasks")
+        lines.extend(f"- `{t['state']}` / `{t['task']}`" for t in added_tasks)
+    if removed_tasks:
+        lines.append("\n### Removed Tasks")
+        lines.extend(f"- `{t['state']}` / `{t['task']}`" for t in removed_tasks)
+    return "\n".join(lines)
+
+
+def diff_snapshots(before: dict, after: dict) -> dict:
+    """Compare two StateTree snapshots. Returns diff dict."""
+    before_states = {s["name"] for s in before.get("states", [])}
+    after_states = {s["name"] for s in after.get("states", [])}
+    added_states = sorted(after_states - before_states)
+    removed_states = sorted(before_states - after_states)
+
+    def _tr_key(t: dict[str, Any]) -> tuple[str, str]:
+        return (t.get("from", ""), t.get("to", ""))
+
+    before_trs = {_tr_key(t): t for t in before.get("transitions", [])}
+    after_trs = {_tr_key(t): t for t in after.get("transitions", [])}
+    added_transitions = [copy.copy(after_trs[k]) for k in sorted(after_trs.keys() - before_trs.keys())]
+    removed_transitions = [copy.copy(before_trs[k]) for k in sorted(before_trs.keys() - after_trs.keys())]
+
+    def _task_key(t: dict[str, Any]) -> tuple[str, str]:
+        return (t.get("state", ""), t.get("task", ""))
+
+    before_tasks = {_task_key(t): t for t in before.get("tasks", [])}
+    after_tasks = {_task_key(t): t for t in after.get("tasks", [])}
+    added_tasks = [copy.copy(after_tasks[k]) for k in sorted(after_tasks.keys() - before_tasks.keys())]
+    removed_tasks = [copy.copy(before_tasks[k]) for k in sorted(before_tasks.keys() - after_tasks.keys())]
+
+    changed = any([added_states, removed_states, added_transitions, removed_transitions, added_tasks, removed_tasks])
+    markdown = _build_diff_md(added_states, removed_states, added_transitions, removed_transitions, added_tasks, removed_tasks)
+
+    return {
+        "added_states": added_states,
+        "removed_states": removed_states,
+        "added_transitions": added_transitions,
+        "removed_transitions": removed_transitions,
+        "added_tasks": added_tasks,
+        "removed_tasks": removed_tasks,
+        "changed": changed,
+        "markdown": markdown,
+    }
+
+
+def _cmd_statetree_diff(args: argparse.Namespace) -> int:
+    before_path: str | None = getattr(args, "before", None)
+    after_path: str | None = getattr(args, "after", None)
+
+    if not before_path or not after_path:
+        r = result_mod.failure("diff", "MISSING_ARG", "--before and --after are required")
+        result_mod.write(r, args.result)
+        return 1
+
+    try:
+        before = load_snapshot(before_path)
+        after = load_snapshot(after_path)
+    except FileNotFoundError as exc:
+        r = result_mod.failure("diff", "NOT_FOUND", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+
+    diff = diff_snapshots(before, after)
+    out = {"ok": True, **diff}
+    result_mod.write(out, args.result)
+    status = "CHANGED" if diff["changed"] else "NO CHANGE"
+    print(f"{status}  ue-auto ai statetree diff")
+    return 0
+
+
 # ── stub for unimplemented commands ───────────────────────────────────────────
 
 def _make_stub(verb: str):
@@ -1372,3 +1624,16 @@ def register(
     add_common(comp_p)
     comp_p.add_argument("--asset", metavar="PATH", required=True, help="UE asset path (e.g. /Game/AI/ST_EnemyAI)")
     comp_p.set_defaults(func=_cmd_statetree_compile)
+
+    # run
+    run_p = sub.add_parser("run", help="Execute a run spec YAML step-by-step")
+    add_common(run_p)
+    run_p.add_argument("--spec", metavar="PATH", help="Run spec YAML path")
+    run_p.set_defaults(func=_cmd_statetree_run)
+
+    # diff
+    diff_p = sub.add_parser("diff", help="Compare two StateTree snapshots")
+    add_common(diff_p)
+    diff_p.add_argument("--before", metavar="PATH", help="Before snapshot JSON path")
+    diff_p.add_argument("--after", metavar="PATH", help="After snapshot JSON path")
+    diff_p.set_defaults(func=_cmd_statetree_diff)
