@@ -754,9 +754,25 @@ def _cmd_statetree_create(args: Any) -> int:
 
 # ── wire command ─────────────────────────────────────────────────────────────
 
+def parse_wire_spec(path: str) -> dict:
+    import yaml as _yaml
+
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Spec not found: {path}")
+    data = _yaml.safe_load(p.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or "statetree" not in data:
+        raise ValueError("Spec must have a top-level 'statetree' key")
+    if "asset" not in data["statetree"]:
+        raise ValueError("Spec must have 'statetree.asset' key")
+    return data
+
+
 def _cmd_statetree_wire(args: Any) -> int:
     project = getattr(args, "project", None)
     asset = getattr(args, "asset", None)
+    spec_path = getattr(args, "spec", None)
+    dry_run = getattr(args, "dry_run", False)
 
     if not project:
         r = result_mod.failure(
@@ -766,13 +782,36 @@ def _cmd_statetree_wire(args: Any) -> int:
         result_mod.write(r, args.result)
         return 1
 
+    wire_spec: dict | None = None
+    if spec_path:
+        try:
+            wire_spec = parse_wire_spec(spec_path)
+        except FileNotFoundError as exc:
+            r = result_mod.failure("statetree-wire", "SPEC_NOT_FOUND", str(exc))
+            result_mod.write(r, args.result)
+            return 1
+        except ValueError as exc:
+            r = result_mod.failure("statetree-wire", "SPEC_ERROR", str(exc))
+            result_mod.write(r, args.result)
+            return 1
+        if not asset:
+            asset = wire_spec["statetree"]["asset"]
+
     if not asset:
         r = result_mod.failure(
             "statetree-wire", "MISSING_ASSET", "--asset is required",
-            hint="Pass --asset /Game/AI/ST_EnemyAI",
+            hint="Pass --asset /Game/AI/ST_EnemyAI or provide a spec with statetree.asset",
         )
         result_mod.write(r, args.result)
         return 1
+
+    if dry_run:
+        r = result_mod.success("statetree-wire", f"[dry-run] Would wire {asset}", asset=asset)
+        r["dry_run"] = True
+        result_mod.write(r, args.result)
+        status = "DRY-RUN"
+        print(f"{status}  ue-auto ai statetree wire  (asset={asset})")
+        return 0
 
     editor = find_editor()
     if not editor:
@@ -798,6 +837,13 @@ def _cmd_statetree_wire(args: Any) -> int:
         "-nosplash",
         "-nullrhi",
     ]
+
+    if wire_spec is not None:
+        spec_json_path = Path(out).parent / "statetree.wire.spec.json"
+        spec_json_path.parent.mkdir(parents=True, exist_ok=True)
+        spec_json_path.write_text(json.dumps(wire_spec, ensure_ascii=False), encoding="utf-8")
+        cmd.append(f"-spec={spec_json_path.as_posix()}")
+
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True)
     except FileNotFoundError as exc:
@@ -810,7 +856,6 @@ def _cmd_statetree_wire(args: Any) -> int:
 
     ok = proc.returncode == 0
 
-    # Try reading the result JSON written by the commandlet
     result_data: dict = {}
     result_path = Path(out) if Path(out).is_absolute() else Path(project).parent / out
     if result_path.exists():
@@ -889,9 +934,10 @@ def register(
     create_p.set_defaults(func=_cmd_statetree_create)
 
     # wire
-    wire_p = sub.add_parser("wire", help="Wire Idle/Flee states and compile ST_EnemyAI via C++ commandlet")
+    wire_p = sub.add_parser("wire", help="Wire StateTree states and compile via C++ commandlet")
     add_common(wire_p)
     wire_p.add_argument("--asset", metavar="PATH", help="UE asset path (e.g. /Game/AI/ST_EnemyAI)")
+    wire_p.add_argument("--spec", metavar="PATH", help="Wire spec YAML (provides asset + state/task/condition config)")
     wire_p.set_defaults(func=_cmd_statetree_wire)
 
     # stubs for future commands
