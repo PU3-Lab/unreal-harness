@@ -881,6 +881,375 @@ def _cmd_statetree_wire(args: Any) -> int:
     return 0 if ok else 1
 
 
+# ── spec-file helpers ─────────────────────────────────────────────────────────
+
+def _load_spec_for_edit(spec_path: str) -> dict:
+    import yaml as _yaml
+
+    p = Path(spec_path)
+    if not p.exists():
+        raise FileNotFoundError(f"Spec not found: {spec_path}")
+    data = _yaml.safe_load(p.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or "statetree" not in data:
+        raise ValueError("Spec must have a top-level 'statetree' key")
+    return data
+
+
+def _save_spec_yaml(spec_path: str, data: dict) -> None:
+    import yaml as _yaml
+
+    Path(spec_path).write_text(
+        _yaml.dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8"
+    )
+
+
+def _find_state(states: list[dict], name: str) -> dict | None:
+    return next((s for s in states if s.get("name") == name), None)
+
+
+# ── add-state ─────────────────────────────────────────────────────────────────
+
+def _cmd_statetree_add_state(args: Any) -> int:
+    spec_path = getattr(args, "spec", None)
+    name = getattr(args, "name", None)
+
+    if not spec_path:
+        r = result_mod.failure("statetree-add-state", "MISSING_SPEC", "--spec is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not name:
+        r = result_mod.failure("statetree-add-state", "MISSING_NAME", "--name is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    try:
+        data = _load_spec_for_edit(spec_path)
+    except FileNotFoundError as exc:
+        r = result_mod.failure("statetree-add-state", "SPEC_NOT_FOUND", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+    except ValueError as exc:
+        r = result_mod.failure("statetree-add-state", "SPEC_ERROR", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+
+    st = data["statetree"]
+    states: list[dict] = st.setdefault("states", [])
+
+    if _find_state(states, name):
+        r = result_mod.failure(
+            "statetree-add-state", "DUPLICATE_STATE", f"State '{name}' already exists"
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    if getattr(args, "dry_run", False):
+        r = result_mod.success(
+            "statetree-add-state", f"[dry-run] Would add state '{name}' to {spec_path}"
+        )
+        r["dry_run"] = True
+        result_mod.write(r, args.result)
+        print(f"DRY-RUN  ue-auto ai statetree add-state  (name={name})")
+        return 0
+
+    new_state: dict = {"name": name}
+    if parent := getattr(args, "parent", None):
+        new_state["parent"] = parent
+    states.append(new_state)
+    _save_spec_yaml(spec_path, data)
+
+    r = result_mod.success("statetree-add-state", f"Added state '{name}' to {spec_path}")
+    result_mod.write(r, args.result)
+    print(f"PASS  ue-auto ai statetree add-state  (name={name})")
+    return 0
+
+
+# ── add-task ──────────────────────────────────────────────────────────────────
+
+def _cmd_statetree_add_task(args: Any) -> int:
+    spec_path = getattr(args, "spec", None)
+    state_name = getattr(args, "state", None)
+    cls = getattr(args, "cls", None)
+    params_str = getattr(args, "params", None)
+
+    if not spec_path:
+        r = result_mod.failure("statetree-add-task", "MISSING_SPEC", "--spec is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not cls:
+        r = result_mod.failure("statetree-add-task", "MISSING_CLASS", "--class is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    try:
+        data = _load_spec_for_edit(spec_path)
+    except FileNotFoundError as exc:
+        r = result_mod.failure("statetree-add-task", "SPEC_NOT_FOUND", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+    except ValueError as exc:
+        r = result_mod.failure("statetree-add-task", "SPEC_ERROR", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+
+    states: list[dict] = data["statetree"].setdefault("states", [])
+    state = _find_state(states, state_name)
+    if not state:
+        r = result_mod.failure(
+            "statetree-add-task", "STATE_NOT_FOUND", f"State '{state_name}' not found in spec"
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    params: dict = {}
+    if params_str:
+        try:
+            params = json.loads(params_str)
+        except json.JSONDecodeError as exc:
+            r = result_mod.failure("statetree-add-task", "INVALID_PARAMS", str(exc))
+            result_mod.write(r, args.result)
+            return 1
+
+    task_entry: dict = {"class": cls, **params}
+    state.setdefault("tasks", []).append(task_entry)
+    _save_spec_yaml(spec_path, data)
+
+    r = result_mod.success(
+        "statetree-add-task", f"Added task '{cls}' to state '{state_name}' in {spec_path}"
+    )
+    result_mod.write(r, args.result)
+    print(f"PASS  ue-auto ai statetree add-task  (state={state_name}, class={cls})")
+    return 0
+
+
+# ── add-transition ────────────────────────────────────────────────────────────
+
+def _cmd_statetree_add_transition(args: Any) -> int:
+    spec_path = getattr(args, "spec", None)
+    state_name = getattr(args, "state", None)
+    trigger = getattr(args, "trigger", None)
+    target = getattr(args, "target", None)
+
+    if not spec_path:
+        r = result_mod.failure("statetree-add-transition", "MISSING_SPEC", "--spec is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not state_name:
+        r = result_mod.failure("statetree-add-transition", "MISSING_STATE", "--state is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not trigger:
+        r = result_mod.failure("statetree-add-transition", "MISSING_TRIGGER", "--trigger is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not target:
+        r = result_mod.failure("statetree-add-transition", "MISSING_TARGET", "--target is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    try:
+        data = _load_spec_for_edit(spec_path)
+    except FileNotFoundError as exc:
+        r = result_mod.failure("statetree-add-transition", "SPEC_NOT_FOUND", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+    except ValueError as exc:
+        r = result_mod.failure("statetree-add-transition", "SPEC_ERROR", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+
+    states: list[dict] = data["statetree"].setdefault("states", [])
+    state = _find_state(states, state_name)
+    if not state:
+        r = result_mod.failure(
+            "statetree-add-transition", "STATE_NOT_FOUND",
+            f"State '{state_name}' not found in spec",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    transition = {"trigger": trigger, "target": target}
+    state.setdefault("transitions", []).append(transition)
+    _save_spec_yaml(spec_path, data)
+
+    r = result_mod.success(
+        "statetree-add-transition",
+        f"Added transition '{trigger}→{target}' to state '{state_name}' in {spec_path}",
+    )
+    result_mod.write(r, args.result)
+    print(f"PASS  ue-auto ai statetree add-transition  (state={state_name}, {trigger}→{target})")
+    return 0
+
+
+# ── add-condition ─────────────────────────────────────────────────────────────
+
+def _cmd_statetree_add_condition(args: Any) -> int:
+    spec_path = getattr(args, "spec", None)
+    state_name = getattr(args, "state", None)
+    trans_idx = getattr(args, "transition_index", None)
+    cls = getattr(args, "cls", None)
+    params_str = getattr(args, "params", None)
+
+    if not spec_path:
+        r = result_mod.failure("statetree-add-condition", "MISSING_SPEC", "--spec is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not state_name:
+        r = result_mod.failure("statetree-add-condition", "MISSING_STATE", "--state is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not cls:
+        r = result_mod.failure("statetree-add-condition", "MISSING_CLASS", "--class is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    try:
+        data = _load_spec_for_edit(spec_path)
+    except FileNotFoundError as exc:
+        r = result_mod.failure("statetree-add-condition", "SPEC_NOT_FOUND", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+    except ValueError as exc:
+        r = result_mod.failure("statetree-add-condition", "SPEC_ERROR", str(exc))
+        result_mod.write(r, args.result)
+        return 1
+
+    states: list[dict] = data["statetree"].setdefault("states", [])
+    state = _find_state(states, state_name)
+    if not state:
+        r = result_mod.failure(
+            "statetree-add-condition", "STATE_NOT_FOUND",
+            f"State '{state_name}' not found in spec",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    transitions: list[dict] = state.get("transitions", [])
+    if trans_idx is None or trans_idx < 0 or trans_idx >= len(transitions):
+        r = result_mod.failure(
+            "statetree-add-condition", "TRANSITION_NOT_FOUND",
+            f"No transition at index {trans_idx} in state '{state_name}'",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    params: dict = {}
+    if params_str:
+        try:
+            params = json.loads(params_str)
+        except json.JSONDecodeError as exc:
+            r = result_mod.failure("statetree-add-condition", "INVALID_PARAMS", str(exc))
+            result_mod.write(r, args.result)
+            return 1
+
+    cond_entry: dict = {"class": cls, **params}
+    transitions[trans_idx].setdefault("conditions", []).append(cond_entry)
+    _save_spec_yaml(spec_path, data)
+
+    r = result_mod.success(
+        "statetree-add-condition",
+        f"Added condition '{cls}' to transition[{trans_idx}] of '{state_name}' in {spec_path}",
+    )
+    result_mod.write(r, args.result)
+    print(f"PASS  ue-auto ai statetree add-condition  (state={state_name}, class={cls})")
+    return 0
+
+
+# ── compile ───────────────────────────────────────────────────────────────────
+
+def _cmd_statetree_compile(args: Any) -> int:
+    project = getattr(args, "project", None)
+    asset = getattr(args, "asset", None)
+
+    if not project:
+        r = result_mod.failure("statetree-compile", "MISSING_PROJECT", "--project is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not asset:
+        r = result_mod.failure("statetree-compile", "MISSING_ASSET", "--asset is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if getattr(args, "dry_run", False):
+        r = result_mod.success("statetree-compile", f"[dry-run] Would compile {asset}", asset=asset)
+        r["dry_run"] = True
+        result_mod.write(r, args.result)
+        print(f"DRY-RUN  ue-auto ai statetree compile  (asset={asset})")
+        return 0
+
+    editor = find_editor()
+    if not editor:
+        r = result_mod.failure(
+            "statetree-compile", "EDITOR_NOT_FOUND",
+            "UnrealEditor-Cmd not found",
+            hint="Set UE_EDITOR_CMD env var or install UE in the standard path.",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    _out_raw = getattr(args, "out", None) or "Saved/AutomationReports/statetree.compile.result.json"
+    out = Path(_out_raw).as_posix() if Path(_out_raw).is_absolute() else _out_raw
+
+    cmd = [
+        editor,
+        str(Path(project).resolve()),
+        "-run=StateTreeCompileCommandlet",
+        f"-asset={asset}",
+        f"-out={out}",
+        "-unattended",
+        "-nop4",
+        "-nosplash",
+        "-nullrhi",
+    ]
+
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        r = result_mod.failure(
+            "statetree-compile", "EDITOR_NOT_FOUND", str(exc),
+            hint="Set UE_EDITOR_CMD env var or install UE in the standard path.",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    ok = proc.returncode == 0
+
+    result_data: dict = {}
+    result_path = Path(out) if Path(out).is_absolute() else Path(project).parent / out
+    if result_path.exists():
+        try:
+            result_data = json.loads(result_path.read_text(encoding="utf-8"))
+            ok = ok and bool(result_data.get("ok", False))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    if ok:
+        msg = result_data.get("message", f"StateTree compiled: {asset}")
+        r = result_mod.success("statetree-compile", msg, asset=asset)
+    else:
+        if proc.stderr:
+            print(proc.stderr[:500], file=sys.stderr)
+        error_code = result_data.get("error_code", "COMPILE_FAILED")
+        error_msg = (
+            result_data.get("message")
+            or f"StateTreeCompileCommandlet failed (exit {proc.returncode})"
+        )
+        r = result_mod.failure("statetree-compile", error_code, error_msg, asset=asset)
+    result_mod.write(r, args.result)
+
+    status = "PASS" if ok else "FAIL"
+    print(f"{status}  ue-auto ai statetree compile  (asset={asset})")
+    return 0 if ok else 1
+
+
 # ── stub for unimplemented commands ───────────────────────────────────────────
 
 def _make_stub(verb: str):
@@ -940,8 +1309,44 @@ def register(
     wire_p.add_argument("--spec", metavar="PATH", help="Wire spec YAML (provides asset + state/task/condition config)")
     wire_p.set_defaults(func=_cmd_statetree_wire)
 
-    # stubs for future commands
-    for verb in ("add-state", "add-task", "add-transition", "add-condition", "compile"):
-        p = sub.add_parser(verb, help=f"[stub] {verb}")
-        add_common(p)
-        p.set_defaults(func=_make_stub(verb))
+    # add-state
+    as_p = sub.add_parser("add-state", help="Append a new state to a wire spec YAML")
+    add_common(as_p)
+    as_p.add_argument("--spec", metavar="PATH", required=True, help="Wire spec YAML to modify")
+    as_p.add_argument("--name", metavar="NAME", required=True, help="State name to add")
+    as_p.add_argument("--parent", metavar="NAME", help="Parent state name (optional)")
+    as_p.set_defaults(func=_cmd_statetree_add_state)
+
+    # add-task
+    at_p = sub.add_parser("add-task", help="Append a task to a state in a wire spec YAML")
+    add_common(at_p)
+    at_p.add_argument("--spec", metavar="PATH", required=True, help="Wire spec YAML to modify")
+    at_p.add_argument("--state", metavar="NAME", required=True, help="Target state name")
+    at_p.add_argument("--class", metavar="CLASS", dest="cls", required=True, help="Task class name (e.g. FleeTask)")
+    at_p.add_argument("--params", metavar="JSON", help='Task parameters as JSON (e.g. \'{"flee_distance": 800.0}\')')
+    at_p.set_defaults(func=_cmd_statetree_add_task)
+
+    # add-transition
+    atr_p = sub.add_parser("add-transition", help="Append a transition to a state in a wire spec YAML")
+    add_common(atr_p)
+    atr_p.add_argument("--spec", metavar="PATH", required=True, help="Wire spec YAML to modify")
+    atr_p.add_argument("--state", metavar="NAME", required=True, help="Source state name")
+    atr_p.add_argument("--trigger", metavar="TRIGGER", required=True, help="Trigger type (OnTick, OnStateCompleted, OnEvent)")
+    atr_p.add_argument("--target", metavar="NAME", required=True, help="Target state name")
+    atr_p.set_defaults(func=_cmd_statetree_add_transition)
+
+    # add-condition
+    ac_p = sub.add_parser("add-condition", help="Append a condition to a transition in a wire spec YAML")
+    add_common(ac_p)
+    ac_p.add_argument("--spec", metavar="PATH", required=True, help="Wire spec YAML to modify")
+    ac_p.add_argument("--state", metavar="NAME", required=True, help="State name")
+    ac_p.add_argument("--transition-index", metavar="N", dest="transition_index", type=int, required=True, help="0-based transition index")
+    ac_p.add_argument("--class", metavar="CLASS", dest="cls", required=True, help="Condition class name (e.g. IsPlayerNear)")
+    ac_p.add_argument("--params", metavar="JSON", help='Condition parameters as JSON (e.g. \'{"radius": 500.0}\')')
+    ac_p.set_defaults(func=_cmd_statetree_add_condition)
+
+    # compile
+    comp_p = sub.add_parser("compile", help="Compile a StateTree asset via C++ commandlet")
+    add_common(comp_p)
+    comp_p.add_argument("--asset", metavar="PATH", required=True, help="UE asset path (e.g. /Game/AI/ST_EnemyAI)")
+    comp_p.set_defaults(func=_cmd_statetree_compile)
