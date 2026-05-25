@@ -7,3 +7,6 @@ dist/
 build/
 
 cli/.venv/
+
+Saved/
+cli/Saved/
