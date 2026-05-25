@@ -1,7 +1,7 @@
 # UE Automation Harness — 진행 현황
 
-> 마지막 업데이트: 2026-05-24  
-> 테스트: 138 passed, 2 skipped  
+> 마지막 업데이트: 2026-05-25  
+> 테스트: 268 passed, 2 skipped  
 > 참조: [전체 설계 개요](docs/plans/00_overview.md) | [CLI 사용법](docs/USAGE.md)
 
 ---
@@ -14,7 +14,7 @@
 | Sprint 1 | Test/Review 파이프라인 (5개 명령어) | ✅ 완료 | [SPRINT_1_PLAN.md](docs/sprints/SPRINT_1_PLAN.md) |
 | Sprint 2 | Asset 네이밍/경로 파이프라인 + Windows 지원 | ✅ 완료 | [SPRINT_2_PLAN.md](docs/sprints/SPRINT_2_PLAN.md) |
 | Sprint 3 | StateTree AI 파이프라인 | ✅ 완료 | [SPRINT_3_PLAN.md](docs/sprints/SPRINT_3_PLAN.md) |
-| Sprint 3-F | StateTree wire + 파이프라인 완성 | 🔄 진행중 | [SPRINT_3_FOLLOWUP_PLAN.md](docs/sprints/SPRINT_3_FOLLOWUP_PLAN.md) |
+| Sprint 3-F | StateTree wire + 파이프라인 완성 | ✅ 완료 | [SPRINT_3_FOLLOWUP_PLAN.md](docs/sprints/SPRINT_3_FOLLOWUP_PLAN.md) |
 | Sprint 4 | C++ 클래스 생성 | ⬜ 미착수 | [05_cpp_class_generation_plan.md](docs/plans/05_cpp_class_generation_plan.md) |
 | Sprint 5 | DataAsset / DataTable / Config | ⬜ 미착수 | [06_dataasset_datatable_config_plan.md](docs/plans/06_dataasset_datatable_config_plan.md) |
 | Sprint 6 | GameplayTag / Input / GAS | ⬜ 미착수 | [07_gameplaytag_input_ability_plan.md](docs/plans/07_gameplaytag_input_ability_plan.md) |
@@ -78,18 +78,23 @@
 
 ---
 
-### 🔄 Sprint 3-F — StateTree wire + 파이프라인 완성
+### ✅ Sprint 3-F — StateTree wire + 파이프라인 완성
 
 | 명령어 | 파일 | 테스트 |
 |---|---|---|
 | `ue-auto ai statetree wire` | `commands/ai_statetree.py` | `tests/test_statetree_wire.py` |
+| `ue-auto ai statetree add-state` | `commands/ai_statetree.py` | `tests/test_statetree_spec_edit.py` |
+| `ue-auto ai statetree add-task` | `commands/ai_statetree.py` | `tests/test_statetree_spec_edit.py` |
+| `ue-auto ai statetree add-transition` | `commands/ai_statetree.py` | `tests/test_statetree_spec_edit.py` |
+| `ue-auto ai statetree add-condition` | `commands/ai_statetree.py` | `tests/test_statetree_spec_edit.py` |
+| `ue-auto ai statetree compile` | `commands/ai_statetree.py` | `tests/test_statetree_spec_edit.py` |
 
+**구현 방식:** 순수 Python YAML spec 조작 (C++ commandlet 불필요)  
+**Plugin (C++):** `StateTreeSnapshotCommandlet` — `asset_path`, `name`, `states`, `evaluators` JSON 덤프  
 **Plugin (C++):** `StateTreeWireCommandlet` — Idle/Flee 상태 배선 + compile + save  
 **`FIsPlayerNearCondition`:** `bInvert` 필드 추가 (Flee→Idle 역방향 조건 지원)  
-**Build.cs:** `StateTreeEditorModule`, `PropertyBindingUtils` 의존성 추가  
-
-**남은 작업:** Snapshot 전체 구조 덤프 / wire spec.yaml 기반 / validate 규칙 추가 / 단위 명령어 구현  
-→ 상세: [SPRINT_3_FOLLOWUP_PLAN.md](docs/sprints/SPRINT_3_FOLLOWUP_PLAN.md)
+**검증 강화:** `MISSING_STATE`, `TARGET_NOT_FOUND`, `PARENT_NOT_FOUND` 에러 코드 추가  
+**테스트:** 32개 spec-edit 테스트, 5개 smoke 테스트 (UE 환경 skip 처리)
 
 ---
 
@@ -117,12 +122,13 @@
 
 ---
 
-## 현재 진행: Sprint 3-F — StateTree 파이프라인 완성
+## 현재 진행: Sprint 4 — C++ 클래스 생성
 
-→ [SPRINT_3_FOLLOWUP_PLAN.md](docs/sprints/SPRINT_3_FOLLOWUP_PLAN.md)
+→ [05_cpp_class_generation_plan.md](docs/plans/05_cpp_class_generation_plan.md)
 
-완료된 것: `wire` 명령어 (Idle/Flee 하드코딩)  
-남은 것: Snapshot 완전 덤프 / spec.yaml wire / validate 규칙 4개 / 단위 명령어 5개
+구현 예정: `ue-auto cpp generate` — spec.yaml 기반 Actor / ActorComponent / DataAsset / Interface 헤더+CPP 생성  
+구현 예정: `ue-auto cpp validate-buildcs` — Build.cs 의존성 리포트  
+구현 예정: `ue-auto cpp validate-reflection` — UPROPERTY/UFUNCTION 정책 검사
 
 ---
 

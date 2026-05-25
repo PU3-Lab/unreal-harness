@@ -1,4 +1,5 @@
 import argparse
+import re
 import textwrap
 from pathlib import Path
 from typing import Callable
@@ -353,6 +354,217 @@ def _cmd_generate_class(args) -> int:
     return 0
 
 
+# ── Build.cs parsing ─────────────────────────────────────────────────────────
+
+_RE_LINE_COMMENT = re.compile(r"//[^\n]*")
+_RE_BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+_RE_ADDRANGE = re.compile(
+    r"(Public|Private)DependencyModuleNames\.AddRange\(new string\[\]\s*\{([^}]*)\}",
+    re.DOTALL,
+)
+_RE_ADD_SINGLE = re.compile(
+    r"(Public|Private)DependencyModuleNames\.Add\(\"([^\"]+)\"\)"
+)
+_RE_MODULE_NAME = re.compile(r'"([^"]+)"')
+
+
+def _strip_csharp_comments(text: str) -> str:
+    text = _RE_BLOCK_COMMENT.sub("", text)
+    return _RE_LINE_COMMENT.sub("", text)
+
+
+def parse_buildcs(path: str) -> dict:
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Build.cs not found: {path}")
+    text = _strip_csharp_comments(p.read_text(encoding="utf-8"))
+
+    result: dict = {"public": [], "private": []}
+
+    for match in _RE_ADDRANGE.finditer(text):
+        visibility = match.group(1).lower()
+        block = match.group(2)
+        modules = _RE_MODULE_NAME.findall(block)
+        result[visibility].extend(modules)
+
+    for match in _RE_ADD_SINGLE.finditer(text):
+        visibility = match.group(1).lower()
+        result[visibility].append(match.group(2))
+
+    return result
+
+
+_REQUIRED_CORE_MODULES = {"Core", "CoreUObject", "Engine"}
+
+
+def validate_buildcs_issues(deps: dict) -> list[dict]:
+    issues: list[dict] = []
+    public = set(deps.get("public", []))
+    private = set(deps.get("private", []))
+
+    duplicates = public & private
+    for mod in sorted(duplicates):
+        issues.append({
+            "code": "DUPLICATE_DEPENDENCY",
+            "message": f"'{mod}' appears in both PublicDependencyModuleNames and PrivateDependencyModuleNames",
+            "module": mod,
+        })
+
+    all_deps = public | private
+    missing = _REQUIRED_CORE_MODULES - all_deps
+    for mod in sorted(missing):
+        issues.append({
+            "code": "MISSING_CORE",
+            "message": f"Required core module '{mod}' is missing from dependencies",
+            "module": mod,
+        })
+
+    return issues
+
+
+def _cmd_validate_buildcs(args: argparse.Namespace) -> int:
+    buildcs_path = getattr(args, "buildcs", None)
+    if not buildcs_path:
+        r = result_mod.failure(
+            "validate-buildcs", "MISSING_BUILDCS", "--buildcs is required",
+            hint="Pass --buildcs path/to/Module.Build.cs",
+        )
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    try:
+        deps = parse_buildcs(buildcs_path)
+    except FileNotFoundError as exc:
+        r = result_mod.failure("validate-buildcs", "FILE_NOT_FOUND", str(exc))
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    issues = validate_buildcs_issues(deps)
+
+    print(f"validate-buildcs  public={len(deps['public'])}  private={len(deps['private'])}  issues={len(issues)}")
+
+    r = result_mod.success("validate-buildcs", f"{len(issues)} issue(s) found")
+    r["checks"] = issues
+    r["deps"] = deps
+    if issues:
+        r["ok"] = False
+        r["message"] = f"{len(issues)} issue(s) found"
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    result_mod.write(r, getattr(args, "result", None))
+    return 0
+
+
+# ── Reflection macro parsing ──────────────────────────────────────────────────
+
+_RE_MACRO_BLOCK = re.compile(
+    r"(UPROPERTY|UFUNCTION)"
+    r"\(([^()]*(?:\([^()]*\)[^()]*)*)\)"
+    r"\s*\n\s*(?:\w+\s+)*(\w+)\s*[\(;]",
+    re.MULTILINE,
+)
+_BLUEPRINT_SPECIFIERS = {"BlueprintCallable", "BlueprintNativeEvent", "BlueprintPure"}
+
+
+def parse_reflection_macros(source_dir: str) -> list[dict]:
+    items: list[dict] = []
+    root = Path(source_dir)
+    for header in root.rglob("*.h"):
+        text = header.read_text(encoding="utf-8", errors="ignore")
+        for match in _RE_MACRO_BLOCK.finditer(text):
+            macro = match.group(1)
+            args = match.group(2).strip()
+            name = match.group(3)
+            line = text[: match.start()].count("\n") + 1
+            items.append({
+                "macro": macro,
+                "args": args,
+                "name": name,
+                "file": str(header),
+                "line": line,
+            })
+    return items
+
+
+def validate_reflection_issues(items: list[dict], policy: dict) -> list[dict]:
+    issues: list[dict] = []
+    fn_policy = policy.get("functions", {})
+    require_category = fn_policy.get("require_category", False)
+
+    if not require_category:
+        return issues
+
+    for item in items:
+        if item["macro"] != "UFUNCTION":
+            continue
+        args_set = {a.strip().split("=")[0].strip() for a in item["args"].split(",")}
+        if not (args_set & _BLUEPRINT_SPECIFIERS):
+            continue
+        if "Category" not in args_set:
+            issues.append({
+                "code": "MISSING_CATEGORY",
+                "message": (
+                    f"UFUNCTION '{item['name']}' has Blueprint specifier but no Category"
+                ),
+                "file": item["file"],
+                "line": item["line"],
+            })
+
+    return issues
+
+
+def _cmd_validate_reflection(args: argparse.Namespace) -> int:
+    source_dir = getattr(args, "source", None)
+    if not source_dir:
+        r = result_mod.failure(
+            "validate-reflection", "MISSING_SOURCE", "--source is required",
+            hint="Pass --source path/to/Source/MyGame",
+        )
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    if not Path(source_dir).exists():
+        r = result_mod.failure(
+            "validate-reflection", "SOURCE_NOT_FOUND", f"Source directory not found: {source_dir}"
+        )
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    policy_path = getattr(args, "policy", None)
+    policy: dict = {"functions": {"require_category": True}}
+    if policy_path:
+        try:
+            loaded = yaml.safe_load(Path(policy_path).read_text())
+        except (FileNotFoundError, yaml.YAMLError) as exc:
+            r = result_mod.failure("validate-reflection", "POLICY_ERROR", str(exc))
+            result_mod.write(r, getattr(args, "result", None))
+            return 1
+        if not isinstance(loaded, dict):
+            r = result_mod.failure(
+                "validate-reflection", "POLICY_ERROR", "Policy YAML must be a mapping"
+            )
+            result_mod.write(r, getattr(args, "result", None))
+            return 1
+        policy = loaded
+
+    items = parse_reflection_macros(source_dir)
+    issues = validate_reflection_issues(items, policy)
+
+    print(f"validate-reflection  macros={len(items)}  issues={len(issues)}")
+
+    r = result_mod.success("validate-reflection", f"{len(issues)} issue(s) found")
+    r["checks"] = issues
+    if issues:
+        r["ok"] = False
+        r["message"] = f"{len(issues)} violation(s) found"
+        result_mod.write(r, getattr(args, "result", None))
+        return 1
+
+    result_mod.write(r, getattr(args, "result", None))
+    return 0
+
+
 # ── registration ──────────────────────────────────────────────────────────────
 
 def register(
@@ -363,3 +575,14 @@ def register(
     add_common(gen_p)
     gen_p.add_argument("--spec", metavar="PATH", help="Class spec YAML path")
     gen_p.set_defaults(func=_cmd_generate_class)
+
+    buildcs_p = sub.add_parser("validate-buildcs", help="Validate Build.cs dependencies")
+    add_common(buildcs_p)
+    buildcs_p.add_argument("--buildcs", metavar="PATH", help="Path to Module.Build.cs")
+    buildcs_p.set_defaults(func=_cmd_validate_buildcs)
+
+    refl_p = sub.add_parser("validate-reflection", help="Validate UPROPERTY/UFUNCTION policy")
+    add_common(refl_p)
+    refl_p.add_argument("--source", metavar="DIR", help="Source directory to scan")
+    refl_p.add_argument("--policy", metavar="PATH", help="Reflection policy YAML")
+    refl_p.set_defaults(func=_cmd_validate_reflection)
