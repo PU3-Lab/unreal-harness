@@ -133,6 +133,18 @@ def test_add_state_duplicate_name_returns_1(tmp_path):
     assert data["error"]["code"] == "DUPLICATE_STATE"
 
 
+def test_add_state_parent_not_found_returns_1(tmp_path):
+    spec = _write_spec(tmp_path / "wire.yaml", states=[{"name": "Idle"}])
+    result_path = tmp_path / "result.json"
+    args = _AddStateArgs(str(spec), "Chase", result=str(result_path), parent="NonexistentParent")
+
+    ret = _cmd_statetree_add_state(args)
+
+    assert ret == 1
+    data = json.loads(result_path.read_text())
+    assert data["error"]["code"] == "PARENT_NOT_FOUND"
+
+
 def test_add_state_missing_spec_returns_1(tmp_path):
     result_path = tmp_path / "result.json"
 
@@ -240,6 +252,19 @@ def test_add_task_missing_class_returns_1(tmp_path):
     assert data["error"]["code"] == "MISSING_CLASS"
 
 
+def test_add_task_missing_state_arg_returns_1(tmp_path):
+    spec = _write_spec(tmp_path / "wire.yaml", states=[{"name": "Flee"}])
+    result_path = tmp_path / "result.json"
+
+    ret = _cmd_statetree_add_task(
+        _AddTaskArgs(str(spec), None, "FleeTask", result=str(result_path))
+    )
+
+    assert ret == 1
+    data = json.loads(result_path.read_text())
+    assert data["error"]["code"] == "MISSING_STATE"
+
+
 def test_add_task_writes_result_ok(tmp_path):
     spec = _write_spec(tmp_path / "wire.yaml", states=[{"name": "Flee"}])
     result_path = tmp_path / "result.json"
@@ -285,6 +310,19 @@ def test_add_transition_state_not_found_returns_1(tmp_path):
     assert ret == 1
     data = json.loads(result_path.read_text())
     assert data["error"]["code"] == "STATE_NOT_FOUND"
+
+
+def test_add_transition_target_not_found_returns_1(tmp_path):
+    spec = _write_spec(tmp_path / "wire.yaml", states=[{"name": "Idle"}])
+    result_path = tmp_path / "result.json"
+
+    ret = _cmd_statetree_add_transition(
+        _AddTransitionArgs(str(spec), "Idle", "OnTick", "NonexistentState", result=str(result_path))
+    )
+
+    assert ret == 1
+    data = json.loads(result_path.read_text())
+    assert data["error"]["code"] == "TARGET_NOT_FOUND"
 
 
 def test_add_transition_writes_result_ok(tmp_path):

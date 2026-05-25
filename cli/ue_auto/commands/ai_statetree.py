@@ -944,6 +944,15 @@ def _cmd_statetree_add_state(args: Any) -> int:
         result_mod.write(r, args.result)
         return 1
 
+    parent = getattr(args, "parent", None)
+    if parent and not _find_state(states, parent):
+        r = result_mod.failure(
+            "statetree-add-state", "PARENT_NOT_FOUND",
+            f"Parent state '{parent}' not found in spec",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
     if getattr(args, "dry_run", False):
         r = result_mod.success(
             "statetree-add-state", f"[dry-run] Would add state '{name}' to {spec_path}"
@@ -954,7 +963,7 @@ def _cmd_statetree_add_state(args: Any) -> int:
         return 0
 
     new_state: dict = {"name": name}
-    if parent := getattr(args, "parent", None):
+    if parent:
         new_state["parent"] = parent
     states.append(new_state)
     _save_spec_yaml(spec_path, data)
@@ -975,6 +984,11 @@ def _cmd_statetree_add_task(args: Any) -> int:
 
     if not spec_path:
         r = result_mod.failure("statetree-add-task", "MISSING_SPEC", "--spec is required")
+        result_mod.write(r, args.result)
+        return 1
+
+    if not state_name:
+        r = result_mod.failure("statetree-add-task", "MISSING_STATE", "--state is required")
         result_mod.write(r, args.result)
         return 1
 
@@ -1069,6 +1083,14 @@ def _cmd_statetree_add_transition(args: Any) -> int:
         r = result_mod.failure(
             "statetree-add-transition", "STATE_NOT_FOUND",
             f"State '{state_name}' not found in spec",
+        )
+        result_mod.write(r, args.result)
+        return 1
+
+    if not _find_state(states, target):
+        r = result_mod.failure(
+            "statetree-add-transition", "TARGET_NOT_FOUND",
+            f"Target state '{target}' not found in spec",
         )
         result_mod.write(r, args.result)
         return 1
